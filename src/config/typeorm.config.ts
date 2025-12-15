@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
+import { User } from '../users/entities/user.entity';
 
 config();
 
@@ -13,7 +14,7 @@ export default new DataSource({
   username: process.env.DB_USERNAME || 'stremio',
   password: process.env.DB_PASSWORD || 'stremio_pass',
   database: process.env.DB_DATABASE || 'movie_db_dev',
-  entities: [Movie, Actor, Cast],
+  entities: [Movie, Actor, Cast, User],
   migrations: ['src/migrations/*.ts'],
   synchronize: false,
   logging: true
