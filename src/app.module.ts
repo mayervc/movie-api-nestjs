@@ -2,10 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MoviesModule } from './movies/movies.module';
-import { Movie } from './movies/entities/movie.entity';
-import { Actor } from './actors/entities/actor.entity';
-import { Cast } from './cast/entities/cast.entity';
-import { User } from './users/entities/user.entity';
+import { entities } from './config/entities';
 
 @Module({
   imports: [
@@ -22,7 +19,7 @@ import { User } from './users/entities/user.entity';
         username: configService.get('DB_USERNAME', 'stremio'),
         password: configService.get('DB_PASSWORD', 'stremio_pass'),
         database: configService.get('DB_DATABASE', 'movie_db_dev'),
-        entities: [Movie, Actor, Cast, User],
+        entities: entities,
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') === 'development'
       }),
