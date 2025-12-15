@@ -13,18 +13,20 @@ API RESTful para gestión de películas construida con Nest.js, TypeORM y Postgr
 
 ## 📋 Requisitos Previos
 
-- Node.js 18+ 
+- Node.js 24 LTS o superior
 - npm o pnpm
 - Docker y Docker Compose (para la base de datos)
 
 ## 🛠️ Instalación
 
 1. **Clonar o navegar al proyecto**:
+
 ```bash
 cd movie-api-nestjs
 ```
 
 2. **Instalar dependencias**:
+
 ```bash
 npm install
 # o
@@ -32,23 +34,38 @@ pnpm install
 ```
 
 3. **Configurar variables de entorno**:
-Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+   Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+
 ```env
 DB_HOST=localhost
 DB_PORT=5434
 DB_USERNAME=stremio
 DB_PASSWORD=stremio_pass
 DB_DATABASE=movie_db_dev
-PORT=3000
+PORT=5000
 NODE_ENV=development
 ```
 
 4. **Iniciar PostgreSQL con Docker**:
+
 ```bash
 docker-compose up -d
 ```
 
-5. **Ejecutar la aplicación**:
+5. **Ejecutar migraciones**:
+
+```bash
+npm run migration:run
+```
+
+6. **Ejecutar seeders** (opcional, para poblar la base de datos con datos de ejemplo):
+
+```bash
+npm run seed
+```
+
+7. **Ejecutar la aplicación**:
+
 ```bash
 # Desarrollo
 npm run start:dev
@@ -58,98 +75,43 @@ npm run build
 npm run start:prod
 ```
 
-La aplicación estará disponible en `http://localhost:3000`
+La aplicación estará disponible en `http://localhost:5000`
 
-## 📚 Endpoints de Movies
+## 🗄️ Migraciones y Seeders
 
-### GET /movies
-Obtiene todas las películas.
+### Migraciones
 
-**Respuesta**:
-```json
-[
-  {
-    "id": 1,
-    "title": "Inception",
-    "releaseDate": "2010-07-16",
-    "genres": ["Action", "Sci-Fi"],
-    "duration": 148,
-    "trending": true,
-    "rating": 8.8,
-    "imageUrl": "https://...",
-    "description": "...",
-    "clasification": "PG-13",
-    "tmdbId": 27205,
-    "createdAt": "2024-01-01T00:00:00.000Z",
-    "updatedAt": "2024-01-01T00:00:00.000Z"
-  }
-]
+Las migraciones se utilizan para gestionar el esquema de la base de datos de forma versionada.
+
+**Ejecutar migraciones**:
+
+```bash
+npm run migration:run
 ```
 
-### GET /movies/:id
-Obtiene una película por ID.
+**Revertir última migración**:
 
-### POST /movies
-Crea una nueva película.
-
-**Body**:
-```json
-{
-  "title": "Inception",
-  "releaseDate": "2010-07-16",
-  "genres": ["Action", "Sci-Fi"],
-  "duration": 148,
-  "trending": true,
-  "rating": 8.8,
-  "imageUrl": "https://...",
-  "description": "A mind-bending thriller",
-  "clasification": "PG-13"
-}
+```bash
+npm run migration:revert
 ```
 
-### PATCH /movies/:id
-Actualiza una película existente.
+**Generar nueva migración**:
 
-**Body** (campos opcionales):
-```json
-{
-  "rating": 9.0,
-  "trending": false
-}
+```bash
+npm run migration:generate src/migrations/NombreMigracion
 ```
 
-### DELETE /movies/:id
-Elimina una película.
+### Seeders
 
-### POST /movies/search
-Busca películas por título o descripción.
+Los seeders permiten poblar la base de datos con datos de ejemplo para desarrollo y testing.
 
-**Body**:
-```json
-{
-  "query": "inception",
-  "page": 1,
-  "limit": 10
-}
+**Ejecutar seeders**:
+
+```bash
+npm run seed
 ```
 
-## 🗄️ Estructura de la Base de Datos
-
-La tabla `movies` tiene los siguientes campos:
-
-- `id` (PK, auto-increment)
-- `title` (string, único, requerido)
-- `release_date` (date, requerido)
-- `genres` (array de strings, opcional)
-- `duration` (integer, requerido, mínimo 1)
-- `trending` (boolean, default: false)
-- `rating` (decimal 3,1, opcional, rango 0-10)
-- `image_url` (string, opcional)
-- `description` (text, opcional)
-- `clasification` (string, opcional)
-- `tmdb_id` (integer, único, opcional)
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
+Los seeders limpiarán las tablas existentes (`cast`, `movies`, `actors`) y las poblarán con datos de ejemplo.
 
 ## 🧪 Testing
 
@@ -174,6 +136,10 @@ npm run test:cov
 - `npm run lint` - Ejecuta el linter
 - `npm run format` - Formatea el código con Prettier
 - `npm run test` - Ejecuta los tests unitarios
+- `npm run migration:run` - Ejecuta las migraciones pendientes
+- `npm run migration:revert` - Revierte la última migración
+- `npm run migration:generate` - Genera una nueva migración
+- `npm run seed` - Ejecuta los seeders para poblar la base de datos
 
 ## 🏗️ Estructura del Proyecto
 
@@ -197,7 +163,7 @@ src/
 
 ### TypeORM
 
-TypeORM está configurado para sincronizar automáticamente el esquema en desarrollo (`synchronize: true`). En producción, se recomienda usar migraciones.
+TypeORM está configurado con `synchronize: false` para usar migraciones en lugar de sincronización automática. Esto garantiza un mejor control del esquema de la base de datos.
 
 ### Validación
 
@@ -222,5 +188,3 @@ Este proyecto es un ejemplo básico de CRUD con Nest.js. Para aprender más:
 ## 📄 Licencia
 
 MIT
-
-
