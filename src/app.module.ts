@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MoviesModule } from './movies/movies.module';
+import { UsersModule } from './users/users.module';
+import { AuthModule } from './auth/auth.module';
 import { entities } from './config/entities';
 
 @Module({
@@ -25,7 +27,9 @@ import { entities } from './config/entities';
       }),
       inject: [ConfigService]
     }),
-    MoviesModule
+    MoviesModule,
+    UsersModule,
+    AuthModule
   ]
 })
 export class AppModule {}
