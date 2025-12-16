@@ -6,7 +6,7 @@ import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
 
 describe('AuthService', () => {
-  let service: AuthService;
+  let authService: AuthService;
   let usersService: UsersService;
   let jwtService: JwtService;
 
@@ -29,7 +29,7 @@ describe('AuthService', () => {
     sign: jest.fn()
   };
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AuthService,
@@ -44,16 +44,18 @@ describe('AuthService', () => {
       ]
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
+    authService = module.get<AuthService>(AuthService);
     usersService = module.get<UsersService>(UsersService);
     jwtService = module.get<JwtService>(JwtService);
+  });
 
+  beforeEach(() => {
     // Reset mocks before each test
     jest.clearAllMocks();
   });
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(authService).toBeDefined();
   });
 
   describe('validateUser', () => {
@@ -71,7 +73,7 @@ describe('AuthService', () => {
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
 
       // Act
-      const result = await service.validateUser(email, password);
+      const result = await authService.validateUser(email, password);
 
       // Assert
       expect(result).toBeDefined();
@@ -88,7 +90,7 @@ describe('AuthService', () => {
       mockUsersService.findByEmail.mockResolvedValue(null);
 
       // Act
-      const result = await service.validateUser(email, password);
+      const result = await authService.validateUser(email, password);
 
       // Assert
       expect(result).toBeNull();
@@ -110,7 +112,7 @@ describe('AuthService', () => {
       jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
       // Act
-      const result = await service.validateUser(email, password);
+      const result = await authService.validateUser(email, password);
 
       // Assert
       expect(result).toBeNull();
@@ -131,7 +133,7 @@ describe('AuthService', () => {
       mockJwtService.sign.mockReturnValue(expectedToken);
 
       // Act
-      const result = await service.login(mockUser);
+      const result = await authService.login(mockUser);
 
       // Assert
       expect(result).toEqual({
@@ -142,4 +144,3 @@ describe('AuthService', () => {
     });
   });
 });
-

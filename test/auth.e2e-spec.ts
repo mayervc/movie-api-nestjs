@@ -94,6 +94,14 @@ describe('AuthController (e2e)', () => {
 
   afterAll(async () => {
     // Limpiar base de datos después de todos los tests
+    if (userRepository) {
+      try {
+        await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      } catch (error) {
+        // Ignorar errores de limpieza si la conexión ya está cerrada
+        console.warn('Error cleaning up database:', error.message);
+      }
+    }
     if (app) {
       await app.close();
     }
