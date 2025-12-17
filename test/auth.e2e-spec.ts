@@ -4,45 +4,22 @@ import * as request from 'supertest';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { AuthModule } from '../src/auth/auth.module';
 import { UsersModule } from '../src/users/users.module';
+import { entities } from '../src/config/entities';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    jest.setTimeout(30000); // Aumentar timeout para inicialización de BD
-    // Configurar variables de entorno para tests E2E con base de datos separada
+    // Configurar variables de entorno para tests E2E
     process.env.DB_DATABASE = 'stremio_db_test';
-    process.env.DB_TEST_PORT = '5436'; // Puerto del servicio postgres-test
+    process.env.DB_TEST_PORT = '5436';
     process.env.NODE_ENV = 'test';
-
-    // Limpiar completamente la base de datos antes de sincronizar
-    const tempDataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_TEST_PORT || '5436'),
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: 'stremio_db_test'
-    });
-
-    await tempDataSource.initialize();
-    try {
-      await tempDataSource.query('DROP SCHEMA public CASCADE');
-      await tempDataSource.query('CREATE SCHEMA public');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO stremio');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO public');
-    } catch (error) {
-      // Ignorar errores si el esquema ya no existe
-      console.warn('Error cleaning schema:', error.message);
-    }
-    await tempDataSource.destroy();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -55,14 +32,14 @@ describe('AuthController (e2e)', () => {
           useFactory: (configService: ConfigService) => ({
             type: 'postgres',
             host: configService.get('DB_HOST', 'localhost'),
-            port: configService.get<number>('DB_TEST_PORT', 5436), // Puerto del servicio postgres-test
+            port: configService.get<number>('DB_TEST_PORT', 5436),
             username: configService.get('DB_USERNAME', 'stremio'),
             password: configService.get('DB_PASSWORD', 'stremio_pass'),
-            database: 'stremio_db_test', // Base de datos separada para tests
-            entities: [User], // Solo la entidad User necesaria para los tests de autenticación
-            synchronize: true, // Usar synchronize para tests (crea tablas automáticamente)
-            dropSchema: true, // Eliminar esquema antes de sincronizar (limpia la BD de test)
-            migrationsRun: false, // No ejecutar migraciones en tests
+            database: 'stremio_db_test',
+            entities: entities,
+            synchronize: false, // Usar migraciones en lugar de synchronize
+            migrationsRun: true, // Ejecutar migraciones automáticamente
+            migrations: ['src/migrations/*.ts'],
             logging: false
           }),
           inject: [ConfigService]
@@ -85,23 +62,13 @@ describe('AuthController (e2e)', () => {
 
     await app.init();
 
-    // Obtener UserRepository y DataSource para limpiar la base de datos
+    // Obtener UserRepository para los tests
     userRepository = moduleFixture.get<Repository<User>>(
       getRepositoryToken(User)
     );
-    dataSource = moduleFixture.get<DataSource>(DataSource);
   });
 
   afterAll(async () => {
-    // Limpiar base de datos después de todos los tests
-    if (userRepository) {
-      try {
-        await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      } catch (error) {
-        // Ignorar errores de limpieza si la conexión ya está cerrada
-        console.warn('Error cleaning up database:', error.message);
-      }
-    }
     if (app) {
       await app.close();
     }
