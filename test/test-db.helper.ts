@@ -1,8 +1,10 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { resolve } from 'path';
 import { entities } from '../src/config/entities';
 
-config();
+// Cargar variables de entorno desde .env.test
+config({ path: resolve(__dirname, '../.env.test') });
 
 /**
  * Helper para gestionar la base de datos de test
@@ -31,85 +33,6 @@ export class TestDatabaseHelper {
       synchronize: false,
       logging: false
     });
-  }
-
-  /**
-   * Crea la base de datos de test si no existe
-   */
-  async createDatabase(): Promise<void> {
-    // Conectar a la base de datos 'postgres' para crear la BD de test
-    const adminDataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: this.testDbPort,
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: 'postgres', // Conectar a la BD por defecto
-      synchronize: false,
-      logging: false
-    });
-
-    try {
-      await adminDataSource.initialize();
-
-      // Verificar si la base de datos existe
-      const result = await adminDataSource.query(
-        `SELECT 1 FROM pg_database WHERE datname = $1`,
-        [this.testDbName]
-      );
-
-      if (result.length === 0) {
-        // Crear la base de datos
-        await adminDataSource.query(`CREATE DATABASE ${this.testDbName}`);
-        console.log(`✅ Base de datos '${this.testDbName}' creada`);
-      } else {
-        console.log(`ℹ️  Base de datos '${this.testDbName}' ya existe`);
-      }
-
-      await adminDataSource.destroy();
-    } catch (error) {
-      console.error('❌ Error creando base de datos:', error.message);
-      throw error;
-    }
-  }
-
-  /**
-   * Elimina completamente la base de datos de test
-   */
-  async dropDatabase(): Promise<void> {
-    // Conectar a la base de datos 'postgres' para eliminar la BD de test
-    const adminDataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: this.testDbPort,
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: 'postgres',
-      synchronize: false,
-      logging: false
-    });
-
-    try {
-      await adminDataSource.initialize();
-
-      // Terminar todas las conexiones activas a la BD de test
-      await adminDataSource.query(
-        `SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = $1 AND pid <> pg_backend_pid()`,
-        [this.testDbName]
-      );
-
-      // Eliminar la base de datos
-      await adminDataSource.query(`DROP DATABASE IF EXISTS ${this.testDbName}`);
-      console.log(`🗑️  Base de datos '${this.testDbName}' eliminada`);
-
-      await adminDataSource.destroy();
-    } catch (error) {
-      console.error('❌ Error eliminando base de datos:', error.message);
-      // No lanzar error si la BD no existe
-      if (!error.message.includes('does not exist')) {
-        throw error;
-      }
-    }
   }
 
   /**
@@ -175,50 +98,46 @@ export class TestDatabaseHelper {
   }
 
   /**
-   * Setup completo: crea BD, limpia esquema y ejecuta migraciones
+   * Setup completo: limpia esquema y ejecuta migraciones
+   * Nota: La base de datos es creada por Docker Compose, no necesitamos crearla aquí
    */
   async setup(): Promise<void> {
-    await this.createDatabase();
     await this.cleanSchema();
     await this.runMigrations();
   }
 
   /**
-   * Teardown: limpia el esquema (más rápido que eliminar BD)
-   * O usa dropDatabase() si prefieres eliminar completamente la BD
+   * Teardown: limpia el esquema
+   * Nota: La base de datos es gestionada por Docker Compose, no la eliminamos
    */
-  async teardown(dropDatabase: boolean = false): Promise<void> {
+  async teardown(): Promise<void> {
     if (this.dataSource.isInitialized) {
       await this.dataSource.destroy();
     }
 
-    if (dropDatabase) {
-      await this.dropDatabase();
-    } else {
-      // Solo limpiar el esquema (más rápido)
-      const tempDataSource = new DataSource({
-        type: 'postgres',
-        host: process.env.DB_HOST || 'localhost',
-        port: this.testDbPort,
-        username: process.env.DB_USERNAME || 'stremio',
-        password: process.env.DB_PASSWORD || 'stremio_pass',
-        database: this.testDbName,
-        synchronize: false,
-        logging: false
-      });
+    // Solo limpiar el esquema (la BD es gestionada por Docker)
+    const tempDataSource = new DataSource({
+      type: 'postgres',
+      host: process.env.DB_HOST || 'localhost',
+      port: this.testDbPort,
+      username: process.env.DB_USERNAME || 'stremio',
+      password: process.env.DB_PASSWORD || 'stremio_pass',
+      database: this.testDbName,
+      synchronize: false,
+      logging: false
+    });
 
-      try {
-        await tempDataSource.initialize();
-        await tempDataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
-        await tempDataSource.query('CREATE SCHEMA public');
-        await tempDataSource.query('GRANT ALL ON SCHEMA public TO stremio');
-        await tempDataSource.query('GRANT ALL ON SCHEMA public TO public');
-        await tempDataSource.destroy();
-        console.log(`🧹 Base de datos '${this.testDbName}' limpiada`);
-      } catch (error) {
-        console.error('❌ Error en teardown:', error.message);
-        // No lanzar error, solo loggear
-      }
+    try {
+      await tempDataSource.initialize();
+      await tempDataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
+      await tempDataSource.query('CREATE SCHEMA public');
+      await tempDataSource.query('GRANT ALL ON SCHEMA public TO stremio');
+      await tempDataSource.query('GRANT ALL ON SCHEMA public TO public');
+      await tempDataSource.destroy();
+      console.log(`🧹 Base de datos '${this.testDbName}' limpiada`);
+    } catch (error) {
+      console.error('❌ Error en teardown:', error.message);
+      // No lanzar error, solo loggear
     }
   }
 

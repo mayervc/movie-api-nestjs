@@ -1,14 +1,11 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { AuthModule } from '../src/auth/auth.module';
 import { UsersModule } from '../src/users/users.module';
-import { entities } from '../src/config/entities';
+import { createTestApp, getTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
@@ -16,62 +13,12 @@ describe('AuthController (e2e)', () => {
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    // Configurar variables de entorno para tests E2E
-    process.env.DB_DATABASE = 'stremio_db_test';
-    process.env.DB_TEST_PORT = '5436';
-    process.env.NODE_ENV = 'test';
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env'
-        }),
-        TypeOrmModule.forRootAsync({
-          imports: [ConfigModule],
-          useFactory: (configService: ConfigService) => ({
-            type: 'postgres',
-            host: configService.get('DB_HOST', 'localhost'),
-            port: configService.get<number>('DB_TEST_PORT', 5436),
-            username: configService.get('DB_USERNAME', 'stremio'),
-            password: configService.get('DB_PASSWORD', 'stremio_pass'),
-            database: 'stremio_db_test',
-            entities: entities,
-            synchronize: false, // Usar migraciones en lugar de synchronize
-            migrationsRun: true, // Ejecutar migraciones automáticamente
-            migrations: ['src/migrations/*.ts'],
-            logging: false
-          }),
-          inject: [ConfigService]
-        }),
-        UsersModule,
-        AuthModule
-      ]
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    // Aplicar el mismo ValidationPipe que en main.ts
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true
-      })
-    );
-
-    await app.init();
+    // Crear la aplicación de test (se reutiliza si ya existe)
+    app = await createTestApp([UsersModule, AuthModule]);
 
     // Obtener UserRepository para los tests
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User)
-    );
-  });
-
-  afterAll(async () => {
-    if (app) {
-      await app.close();
-    }
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
   });
 
   beforeEach(async () => {

@@ -1,4 +1,12 @@
+import { config } from 'dotenv';
+import { resolve } from 'path';
 import { TestDatabaseHelper } from './test-db.helper';
+import { closeTestApp } from './test-app.helper';
+
+/**
+ * Cargar variables de entorno desde .env.test
+ */
+config({ path: resolve(__dirname, '../.env.test') });
 
 /**
  * Setup global para todos los tests E2E
@@ -9,11 +17,6 @@ import { TestDatabaseHelper } from './test-db.helper';
  */
 let dbHelper: TestDatabaseHelper;
 
-// Configurar variables de entorno ANTES de crear el helper
-process.env.DB_DATABASE = 'stremio_db_test';
-process.env.DB_TEST_PORT = '5436';
-process.env.NODE_ENV = 'test';
-
 beforeAll(async () => {
   jest.setTimeout(60000); // Aumentar timeout para setup de BD
 
@@ -21,7 +24,8 @@ beforeAll(async () => {
 
   dbHelper = new TestDatabaseHelper();
 
-  // Setup completo: crear BD, limpiar esquema y ejecutar migraciones
+  // Setup completo: limpiar esquema y ejecutar migraciones
+  // Nota: La BD es creada por Docker Compose, no necesitamos crearla aquí
   await dbHelper.setup();
 
   console.log('✅ Setup de base de datos completado');
@@ -32,15 +36,14 @@ beforeAll(async () => {
  * Se ejecuta una vez después de todos los tests
  */
 afterAll(async () => {
+  // Cerrar la aplicación de test
+  await closeTestApp();
+
   if (dbHelper) {
     console.log('🧹 Limpiando base de datos de test...');
 
-    // Opción 1: Limpiar solo el esquema (más rápido, recomendado)
-    // Esto elimina todas las tablas pero mantiene la BD
-    await dbHelper.teardown(false);
-
-    // Opción 2: Eliminar completamente la BD (descomentar si prefieres)
-    // await dbHelper.teardown(true);
+    // Limpiar el esquema (la BD es gestionada por Docker Compose)
+    await dbHelper.teardown();
 
     console.log('✅ Limpieza completada');
   }
