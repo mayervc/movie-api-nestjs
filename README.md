@@ -41,7 +41,7 @@ DB_HOST=localhost
 DB_PORT=5434
 DB_USERNAME=stremio
 DB_PASSWORD=stremio_pass
-DB_DATABASE=movie_db_dev
+DB_DATABASE=stremio_db_dev
 PORT=5000
 NODE_ENV=development
 ```

@@ -5,13 +5,13 @@ services:
     environment:
       POSTGRES_USER: stremio
       POSTGRES_PASSWORD: stremio_pass
-      POSTGRES_DB: movie_db_dev
+      POSTGRES_DB: stremio_db_dev
     ports:
       - "5434:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stremio -d movie_db_dev"]
+      test: ["CMD-SHELL", "pg_isready -U stremio -d stremio_db_dev"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,13 +22,13 @@ services:
     environment:
       POSTGRES_USER: stremio
       POSTGRES_PASSWORD: stremio_pass
-      POSTGRES_DB: movie_db_test
+      POSTGRES_DB: stremio_db_test
     ports:
       - "5436:5432"
     volumes:
       - db_test_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U stremio -d movie_db_test"]
+      test: ["CMD-SHELL", "pg_isready -U stremio -d stremio_db_test"]
       interval: 5s
       timeout: 5s
       retries: 5

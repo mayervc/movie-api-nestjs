@@ -14,7 +14,7 @@ async function runSeeders() {
     port: parseInt(process.env.DB_PORT || '5434'),
     username: process.env.DB_USERNAME || 'stremio',
     password: process.env.DB_PASSWORD || 'stremio_pass',
-    database: process.env.DB_DATABASE || 'movie_db_dev',
+    database: process.env.DB_DATABASE || 'stremio_db_dev',
     entities: [Movie, Actor, Cast],
     synchronize: false,
     logging: true

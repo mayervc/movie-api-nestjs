@@ -18,7 +18,7 @@ describe('AuthController (e2e)', () => {
   beforeAll(async () => {
     jest.setTimeout(30000); // Aumentar timeout para inicialización de BD
     // Configurar variables de entorno para tests E2E con base de datos separada
-    process.env.DB_DATABASE = 'movie_db_test';
+    process.env.DB_DATABASE = 'stremio_db_test';
     process.env.DB_TEST_PORT = '5436'; // Puerto del servicio postgres-test
     process.env.NODE_ENV = 'test';
 
@@ -29,7 +29,7 @@ describe('AuthController (e2e)', () => {
       port: parseInt(process.env.DB_TEST_PORT || '5436'),
       username: process.env.DB_USERNAME || 'stremio',
       password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: 'movie_db_test'
+      database: 'stremio_db_test'
     });
 
     await tempDataSource.initialize();
@@ -58,7 +58,7 @@ describe('AuthController (e2e)', () => {
             port: configService.get<number>('DB_TEST_PORT', 5436), // Puerto del servicio postgres-test
             username: configService.get('DB_USERNAME', 'stremio'),
             password: configService.get('DB_PASSWORD', 'stremio_pass'),
-            database: 'movie_db_test', // Base de datos separada para tests
+            database: 'stremio_db_test', // Base de datos separada para tests
             entities: [User], // Solo la entidad User necesaria para los tests de autenticación
             synchronize: true, // Usar synchronize para tests (crea tablas automáticamente)
             dropSchema: true, // Eliminar esquema antes de sincronizar (limpia la BD de test)
