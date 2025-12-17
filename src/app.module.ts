@@ -20,7 +20,7 @@ import { entities } from './config/entities';
         port: configService.get<number>('DB_PORT', 5434),
         username: configService.get('DB_USERNAME', 'stremio'),
         password: configService.get('DB_PASSWORD', 'stremio_pass'),
-        database: configService.get('DB_DATABASE', 'movie_db_dev'),
+        database: configService.get('DB_DATABASE', 'stremio_db_dev'),
         entities: entities,
         synchronize: configService.get('NODE_ENV') !== 'production',
         logging: configService.get('NODE_ENV') === 'development'
