@@ -8,7 +8,7 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
-  ParseIntPipe,
+  ParseIntPipe
 } from '@nestjs/common';
 import { MoviesService } from './movies.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -38,7 +38,7 @@ export class MoviesController {
   @Patch(':id')
   update(
     @Param('id', ParseIntPipe) id: number,
-    @Body() updateMovieDto: UpdateMovieDto,
+    @Body() updateMovieDto: UpdateMovieDto
   ) {
     return this.moviesService.update(id, updateMovieDto);
   }
@@ -50,9 +50,8 @@ export class MoviesController {
   }
 
   @Post('search')
+  @HttpCode(HttpStatus.OK)
   search(@Body() searchDto: SearchMovieDto) {
     return this.moviesService.search(searchDto);
   }
 }
-
-
