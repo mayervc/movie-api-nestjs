@@ -29,8 +29,7 @@ export class UsersService {
     }
 
     try {
-      const user = this.userRepository.create(userData);
-      return await this.userRepository.save(user);
+      return await this.userRepository.save(userData);
     } catch (error) {
       // Manejar error de constraint único en caso de race condition
       if (
