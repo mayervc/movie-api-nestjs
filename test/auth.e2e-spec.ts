@@ -1,110 +1,23 @@
-import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { ConfigModule, ConfigService } from '@nestjs/config';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
-import { AuthModule } from '../src/auth/auth.module';
-import { UsersModule } from '../src/users/users.module';
+import { createTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-  let dataSource: DataSource;
 
   beforeAll(async () => {
-    jest.setTimeout(30000); // Aumentar timeout para inicialización de BD
-    // Configurar variables de entorno para tests E2E con base de datos separada
-    process.env.DB_DATABASE = 'stremio_db_test';
-    process.env.DB_TEST_PORT = '5436'; // Puerto del servicio postgres-test
-    process.env.NODE_ENV = 'test';
+    // Crear la aplicación de test (se reutiliza si ya existe)
+    // AppModule ya incluye UsersModule y AuthModule
+    app = await createTestApp();
 
-    // Limpiar completamente la base de datos antes de sincronizar
-    const tempDataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: parseInt(process.env.DB_TEST_PORT || '5436'),
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: 'stremio_db_test'
-    });
-
-    await tempDataSource.initialize();
-    try {
-      await tempDataSource.query('DROP SCHEMA public CASCADE');
-      await tempDataSource.query('CREATE SCHEMA public');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO stremio');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO public');
-    } catch (error) {
-      // Ignorar errores si el esquema ya no existe
-      console.warn('Error cleaning schema:', error.message);
-    }
-    await tempDataSource.destroy();
-
-    const moduleFixture: TestingModule = await Test.createTestingModule({
-      imports: [
-        ConfigModule.forRoot({
-          isGlobal: true,
-          envFilePath: '.env'
-        }),
-        TypeOrmModule.forRootAsync({
-          imports: [ConfigModule],
-          useFactory: (configService: ConfigService) => ({
-            type: 'postgres',
-            host: configService.get('DB_HOST', 'localhost'),
-            port: configService.get<number>('DB_TEST_PORT', 5436), // Puerto del servicio postgres-test
-            username: configService.get('DB_USERNAME', 'stremio'),
-            password: configService.get('DB_PASSWORD', 'stremio_pass'),
-            database: 'stremio_db_test', // Base de datos separada para tests
-            entities: [User], // Solo la entidad User necesaria para los tests de autenticación
-            synchronize: true, // Usar synchronize para tests (crea tablas automáticamente)
-            dropSchema: true, // Eliminar esquema antes de sincronizar (limpia la BD de test)
-            migrationsRun: false, // No ejecutar migraciones en tests
-            logging: false
-          }),
-          inject: [ConfigService]
-        }),
-        UsersModule,
-        AuthModule
-      ]
-    }).compile();
-
-    app = moduleFixture.createNestApplication();
-
-    // Aplicar el mismo ValidationPipe que en main.ts
-    app.useGlobalPipes(
-      new ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
-        transform: true
-      })
-    );
-
-    await app.init();
-
-    // Obtener UserRepository y DataSource para limpiar la base de datos
-    userRepository = moduleFixture.get<Repository<User>>(
-      getRepositoryToken(User)
-    );
-    dataSource = moduleFixture.get<DataSource>(DataSource);
-  });
-
-  afterAll(async () => {
-    // Limpiar base de datos después de todos los tests
-    if (userRepository) {
-      try {
-        await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      } catch (error) {
-        // Ignorar errores de limpieza si la conexión ya está cerrada
-        console.warn('Error cleaning up database:', error.message);
-      }
-    }
-    if (app) {
-      await app.close();
-    }
+    // Obtener UserRepository para los tests
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
   });
 
   beforeEach(async () => {

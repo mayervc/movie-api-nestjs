@@ -39,5 +39,7 @@ postman/report.html
 .env
 .env.local
 .env.*.local
+# Keep .env.test.example but ignore actual .env.test
+.env.test
 
 
