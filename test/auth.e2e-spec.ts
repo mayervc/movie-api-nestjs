@@ -3,9 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
-import { AuthModule } from '../src/auth/auth.module';
-import { UsersModule } from '../src/users/users.module';
-import { createTestApp, getTestApp, getTestModule } from './test-app.helper';
+import { createTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
@@ -14,7 +12,8 @@ describe('AuthController (e2e)', () => {
 
   beforeAll(async () => {
     // Crear la aplicación de test (se reutiliza si ya existe)
-    app = await createTestApp([UsersModule, AuthModule]);
+    // AppModule ya incluye UsersModule y AuthModule
+    app = await createTestApp();
 
     // Obtener UserRepository para los tests
     const testModule = getTestModule();

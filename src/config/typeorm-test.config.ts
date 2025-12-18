@@ -1,8 +1,10 @@
 import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
+import { resolve } from 'path';
 import { entities } from './entities';
 
-config();
+// Cargar variables de entorno desde .env.test para tests
+config({ path: resolve(__dirname, '../../.env.test') });
 
 /**
  * Configuración de TypeORM específica para tests

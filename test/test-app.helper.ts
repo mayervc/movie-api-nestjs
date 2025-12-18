@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { entities } from '../src/config/entities';
+import { MoviesModule } from '../src/movies/movies.module';
+import { UsersModule } from '../src/users/users.module';
+import { AuthModule } from '../src/auth/auth.module';
+import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**
  * Helper para crear la aplicación Nest de test
@@ -14,40 +17,45 @@ let testModule: TestingModule;
 /**
  * Crea y configura la aplicación Nest de test
  * Esta función se ejecuta una sola vez y el resultado se reutiliza
- *
- * @param modules - Módulos adicionales a importar (ej: AuthModule, UsersModule)
+ * Crea un módulo de test que importa solo los módulos necesarios con la configuración correcta
  */
-export async function createTestApp(
-  modules: any[] = []
-): Promise<INestApplication> {
+export async function createTestApp(): Promise<INestApplication> {
   if (testApp) {
     return testApp;
   }
 
+  // Extraer configuración del DataSource de typeorm-test.config.ts
+  const typeormOptions = typeormTestConfig.options as any;
+
   testModule = await Test.createTestingModule({
     imports: [
+      // ConfigModule con .env.test
       ConfigModule.forRoot({
         isGlobal: true,
         envFilePath: '.env.test'
       }),
+      // TypeOrmModule con configuración de test
       TypeOrmModule.forRootAsync({
         imports: [ConfigModule],
-        useFactory: (configService: ConfigService) => ({
-          type: 'postgres',
-          host: configService.get('DB_HOST', 'localhost'),
-          port: configService.get<number>('DB_TEST_PORT', 5436),
-          username: configService.get('DB_USERNAME', 'stremio'),
-          password: configService.get('DB_PASSWORD', 'stremio_pass'),
-          database: configService.get('DB_DATABASE', 'stremio_db_test'),
-          entities: entities,
+        useFactory: () => ({
+          type: typeormOptions.type,
+          host: typeormOptions.host,
+          port: typeormOptions.port,
+          username: typeormOptions.username,
+          password: typeormOptions.password,
+          database: typeormOptions.database,
+          entities: typeormOptions.entities,
           synchronize: false,
           migrationsRun: false, // Las migraciones se ejecutan en test-setup.ts
-          migrations: ['src/migrations/*.ts'],
+          migrations: typeormOptions.migrations,
           logging: false
         }),
         inject: [ConfigService]
       }),
-      ...modules
+      // Importar solo los módulos necesarios para los tests
+      MoviesModule,
+      UsersModule,
+      AuthModule
     ]
   }).compile();
 

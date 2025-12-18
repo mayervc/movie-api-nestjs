@@ -1,38 +1,22 @@
 import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
-import { resolve } from 'path';
-import { entities } from '../src/config/entities';
-
-// Cargar variables de entorno desde .env.test
-config({ path: resolve(__dirname, '../.env.test') });
+import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**
  * Helper para gestionar la base de datos de test
- * - Crea la base de datos si no existe
  * - Ejecuta migraciones
  * - Limpia la base de datos después de los tests
+ * Nota: La base de datos es creada por Docker Compose
  */
 export class TestDatabaseHelper {
-  private dataSource: DataSource;
+  private readonly dataSource: DataSource;
   private readonly testDbName: string;
   private readonly testDbPort: number;
 
   constructor() {
+    // Usar el DataSource configurado en typeorm-test.config.ts
+    this.dataSource = typeormTestConfig;
     this.testDbName = process.env.DB_DATABASE || 'stremio_db_test';
     this.testDbPort = parseInt(process.env.DB_TEST_PORT || '5436');
-
-    this.dataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: this.testDbPort,
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: this.testDbName,
-      entities: entities,
-      migrations: ['src/migrations/*.ts'],
-      synchronize: false,
-      logging: false
-    });
   }
 
   /**
@@ -111,29 +95,21 @@ export class TestDatabaseHelper {
    * Nota: La base de datos es gestionada por Docker Compose, no la eliminamos
    */
   async teardown(): Promise<void> {
-    if (this.dataSource.isInitialized) {
-      await this.dataSource.destroy();
-    }
-
-    // Solo limpiar el esquema (la BD es gestionada por Docker)
-    const tempDataSource = new DataSource({
-      type: 'postgres',
-      host: process.env.DB_HOST || 'localhost',
-      port: this.testDbPort,
-      username: process.env.DB_USERNAME || 'stremio',
-      password: process.env.DB_PASSWORD || 'stremio_pass',
-      database: this.testDbName,
-      synchronize: false,
-      logging: false
-    });
-
+    // Usar el mismo DataSource configurado
     try {
-      await tempDataSource.initialize();
-      await tempDataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
-      await tempDataSource.query('CREATE SCHEMA public');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO stremio');
-      await tempDataSource.query('GRANT ALL ON SCHEMA public TO public');
-      await tempDataSource.destroy();
+      if (!this.dataSource.isInitialized) {
+        await this.dataSource.initialize();
+      }
+
+      await this.dataSource.query('DROP SCHEMA IF EXISTS public CASCADE');
+      await this.dataSource.query('CREATE SCHEMA public');
+      await this.dataSource.query('GRANT ALL ON SCHEMA public TO stremio');
+      await this.dataSource.query('GRANT ALL ON SCHEMA public TO public');
+
+      if (this.dataSource.isInitialized) {
+        await this.dataSource.destroy();
+      }
+
       console.log(`🧹 Base de datos '${this.testDbName}' limpiada`);
     } catch (error) {
       console.error('❌ Error en teardown:', error.message);
