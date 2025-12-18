@@ -30,10 +30,14 @@ export class AuthService {
     return user;
   }
 
-  async login(user: User): Promise<LoginResponseDto> {
+  private generateToken(user: User): string {
     const payload = { email: user.email, sub: user.id };
+    return this.jwtService.sign(payload);
+  }
+
+  async login(user: User): Promise<LoginResponseDto> {
     return {
-      access_token: this.jwtService.sign(payload)
+      access_token: this.generateToken(user)
     };
   }
 
@@ -50,8 +54,7 @@ export class AuthService {
     });
 
     // Generar JWT token
-    const payload = { email: user.email, sub: user.id };
-    const token = this.jwtService.sign(payload);
+    const token = this.generateToken(user);
 
     // Retornar respuesta sin password
     return {
