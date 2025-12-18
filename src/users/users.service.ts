@@ -3,6 +3,11 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
 import { User } from './entities/user.entity';
 
+export type CreateUserInput = Pick<
+  User,
+  'email' | 'password' | 'firstName' | 'lastName'
+>;
+
 @Injectable()
 export class UsersService {
   constructor(
@@ -16,12 +21,7 @@ export class UsersService {
     });
   }
 
-  async create(userData: {
-    email: string;
-    password: string;
-    firstName?: string;
-    lastName?: string;
-  }): Promise<User> {
+  async create(userData: CreateUserInput): Promise<User> {
     // Verificar si el email ya existe
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
