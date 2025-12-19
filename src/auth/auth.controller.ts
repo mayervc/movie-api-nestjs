@@ -13,6 +13,7 @@ import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
+import { Public } from './decorators/public.decorator';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -20,6 +21,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('login')
+  @Public()
   @HttpCode(200)
   @ApiOperation({ summary: 'User login' })
   @ApiResponse({
@@ -43,6 +45,7 @@ export class AuthController {
   }
 
   @Post('signup')
+  @Public()
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'User signup' })
   @ApiResponse({
