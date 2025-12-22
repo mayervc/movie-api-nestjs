@@ -34,7 +34,7 @@ pnpm install
 ```
 
 3. **Configurar variables de entorno**:
-   Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
+Crea un archivo `.env` en la raíz del proyecto con el siguiente contenido:
 
 ```env
 DB_HOST=localhost

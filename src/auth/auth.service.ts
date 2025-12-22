@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
@@ -45,12 +46,13 @@ export class AuthService {
     // Hashear la contraseña antes de guardar
     const hashedPassword = await bcrypt.hash(signupDto.password, 10);
 
-    // Crear el usuario con el password hasheado
+    // Crear el usuario con el password hasheado y rol por defecto 'user'
     const user = await this.usersService.create({
       email: signupDto.email,
       password: hashedPassword,
       firstName: signupDto.firstName,
-      lastName: signupDto.lastName
+      lastName: signupDto.lastName,
+      role: UserRole.USER
     });
 
     // Generar JWT token

@@ -5,7 +5,7 @@ import { User } from './entities/user.entity';
 
 export type CreateUserInput = Pick<
   User,
-  'email' | 'password' | 'firstName' | 'lastName'
+  'email' | 'password' | 'firstName' | 'lastName' | 'role'
 >;
 
 @Injectable()
