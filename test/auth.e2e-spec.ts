@@ -5,7 +5,6 @@ import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
-import { waitForTablesToBeReady } from './test-helpers';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
@@ -13,11 +12,8 @@ describe('AuthController (e2e)', () => {
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    // Esperar a que las tablas estén disponibles antes de crear la app
-    await waitForTablesToBeReady(['users']);
-
-    // Crear la aplicación de test (se reutiliza si ya existe)
-    // AppModule ya incluye UsersModule y AuthModule
+    // La aplicación de test se crea después de que el setup global complete
+    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
 
     // Obtener UserRepository para los tests

@@ -1,11 +1,10 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { getRepositoryToken, getDataSourceToken } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
-import { waitForTablesToBeReady } from './test-helpers';
 import * as bcrypt from 'bcrypt';
 
 describe('Roles Protection (e2e)', () => {
@@ -19,8 +18,8 @@ describe('Roles Protection (e2e)', () => {
   let userToken: string;
 
   beforeAll(async () => {
-    await waitForTablesToBeReady(['users', 'movies']);
-
+    // La aplicación de test se crea después de que el setup global complete
+    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
     const testModule = getTestModule();
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
@@ -45,44 +44,10 @@ describe('Roles Protection (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Verificar que el beforeAll se completó correctamente
-    if (!app || !userRepository) {
-      throw new Error(
-        'La aplicación de test no se inicializó correctamente en beforeAll. ' +
-          'Verifica que las migraciones se ejecutaron y las tablas están disponibles.'
-      );
-    }
-
     // Limpiar usuarios y películas antes de cada test
-    // Las tablas ya deberían existir gracias al setup global y la verificación en beforeAll
-    try {
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      await userRepository.query('TRUNCATE TABLE "movies" CASCADE');
-    } catch (error) {
-      // Si las tablas no existen, intentar verificar el estado actual
-      try {
-        const { getDataSourceToken } = await import('@nestjs/typeorm');
-        const testModule = getTestModule();
-        const nestDataSource = testModule.get<DataSource>(getDataSourceToken());
-        const tables = await nestDataSource.query(`
-          SELECT tablename FROM pg_tables 
-          WHERE schemaname = 'public' 
-          AND tablename IN ('users', 'movies')
-        `);
-
-        throw new Error(
-          `Error al limpiar tablas: ${(error as Error).message}. ` +
-            `Las tablas deberían existir después del setup. ` +
-            `Tablas encontradas en pg_tables: ${tables.map((t: any) => t.tablename).join(', ') || 'ninguna'}`
-        );
-      } catch (verifyError) {
-        throw new Error(
-          `Error al limpiar tablas: ${(error as Error).message}. ` +
-            `Las tablas deberían existir después del setup. ` +
-            `Error al verificar: ${(verifyError as Error).message}`
-        );
-      }
-    }
+    // Las tablas ya existen gracias al setup global
+    await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+    await userRepository.query('TRUNCATE TABLE "movies" CASCADE');
 
     // Crear usuarios de prueba con diferentes roles
     const adminPassword = await bcrypt.hash('Admin123!', 10);
