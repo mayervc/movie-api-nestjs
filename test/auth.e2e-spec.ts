@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
+import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
@@ -11,8 +12,8 @@ describe('AuthController (e2e)', () => {
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    // Crear la aplicación de test (se reutiliza si ya existe)
-    // AppModule ya incluye UsersModule y AuthModule
+    // La aplicación de test se crea después de que el setup global complete
+    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
 
     // Obtener UserRepository para los tests
@@ -27,7 +28,7 @@ describe('AuthController (e2e)', () => {
         await userRepository.query('TRUNCATE TABLE "users" CASCADE');
       } catch (error) {
         // Ignorar errores si la tabla no existe o ya está vacía
-        console.warn('Error cleaning users:', error.message);
+        // Ignorar errores si la tabla no existe o ya está vacía
       }
     }
   });
@@ -313,6 +314,28 @@ describe('AuthController (e2e)', () => {
       expect(response.body.user.email).toBe('optional@example.com');
       expect(response.body.user.firstName).toBeFalsy(); // Puede ser null o undefined
       expect(response.body.user.lastName).toBeFalsy(); // Puede ser null o undefined
+    });
+
+    it('should assign USER role by default to new users', async () => {
+      // Act
+      const response = await request(app.getHttpServer())
+        .post('/auth/signup')
+        .send({
+          email: 'rolecheck@example.com',
+          password: 'Password123!',
+          firstName: 'Role',
+          lastName: 'Check'
+        });
+
+      // Assert
+      expect(response.status).toBe(201);
+
+      // Verificar que el usuario tiene rol USER en la base de datos
+      const savedUser = await userRepository.findOne({
+        where: { email: 'rolecheck@example.com' }
+      });
+      expect(savedUser).toBeDefined();
+      expect(savedUser.role).toBe(UserRole.USER);
     });
   });
 });
