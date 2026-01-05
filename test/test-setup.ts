@@ -2,6 +2,7 @@ import { config } from 'dotenv';
 import { resolve } from 'path';
 import { TestDatabaseHelper } from './test-db.helper';
 import { closeTestApp } from './test-app.helper';
+import { waitForTablesToBeReady } from './test-helpers';
 
 /**
  * Cargar variables de entorno desde .env.test
@@ -18,17 +19,11 @@ config({ path: resolve(__dirname, '../.env.test') });
 let dbHelper: TestDatabaseHelper;
 
 beforeAll(async () => {
-  jest.setTimeout(60000); // Aumentar timeout para setup de BD
-
-  console.log('🚀 Iniciando setup de base de datos de test...');
+  jest.setTimeout(60000);
 
   dbHelper = new TestDatabaseHelper();
-
-  // Setup completo: limpiar esquema y ejecutar migraciones
-  // Nota: La BD es creada por Docker Compose, no necesitamos crearla aquí
   await dbHelper.setup();
-
-  console.log('✅ Setup de base de datos completado');
+  await waitForTablesToBeReady(['users', 'movies']);
 });
 
 /**
@@ -36,15 +31,9 @@ beforeAll(async () => {
  * Se ejecuta una vez después de todos los tests
  */
 afterAll(async () => {
-  // Cerrar la aplicación de test
   await closeTestApp();
 
   if (dbHelper) {
-    console.log('🧹 Limpiando base de datos de test...');
-
-    // Limpiar el esquema (la BD es gestionada por Docker Compose)
     await dbHelper.teardown();
-
-    console.log('✅ Limpieza completada');
   }
 });

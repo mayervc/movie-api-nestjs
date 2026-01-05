@@ -7,6 +7,7 @@ import { LoginResponseDto } from './dto/login-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { SignupResponseDto } from './dto/signup-response.dto';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -18,6 +19,7 @@ describe('AuthController', () => {
     lastName: 'Doe',
     email: 'john.doe@example.com',
     password: '$2b$10$hashedPassword',
+    role: UserRole.USER,
     createdAt: new Date(),
     updatedAt: new Date()
   };

@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 import { SignupDto } from './dto/signup.dto';
 
 describe('AuthService', () => {
@@ -19,6 +20,7 @@ describe('AuthService', () => {
     lastName: 'Doe',
     email: 'john.doe@example.com',
     password: '$2b$10$hashedPassword', // bcrypt hash
+    role: UserRole.USER,
     createdAt: new Date(),
     updatedAt: new Date()
   };
@@ -163,6 +165,7 @@ describe('AuthService', () => {
         password: '$2b$10$hashedPassword',
         firstName: signupDto.firstName,
         lastName: signupDto.lastName,
+        role: UserRole.USER,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -195,7 +198,8 @@ describe('AuthService', () => {
         email: signupDto.email,
         password: '$2b$10$hashedPassword',
         firstName: signupDto.firstName,
-        lastName: signupDto.lastName
+        lastName: signupDto.lastName,
+        role: UserRole.USER
       });
       expect(mockJwtService.sign).toHaveBeenCalledWith(expectedPayload);
       expect('password' in result.user).toBe(false);
@@ -228,6 +232,7 @@ describe('AuthService', () => {
         password: '$2b$10$hashedPassword',
         firstName: signupDto.firstName,
         lastName: signupDto.lastName,
+        role: UserRole.USER,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -262,6 +267,7 @@ describe('AuthService', () => {
         password: '$2b$10$hashedPassword',
         firstName: signupDto.firstName,
         lastName: signupDto.lastName,
+        role: UserRole.USER,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -294,6 +300,7 @@ describe('AuthService', () => {
         password: '$2b$10$hashedPassword',
         firstName: signupDto.firstName,
         lastName: signupDto.lastName,
+        role: UserRole.USER,
         createdAt: new Date(),
         updatedAt: new Date()
       };
