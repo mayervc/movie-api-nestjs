@@ -1,7 +1,7 @@
 import {
   Injectable,
   NotFoundException,
-  BadRequestException,
+  BadRequestException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like, ILike } from 'typeorm';
@@ -14,14 +14,14 @@ import { SearchMovieDto } from './dto/search-movie.dto';
 export class MoviesService {
   constructor(
     @InjectRepository(Movie)
-    private readonly movieRepository: Repository<Movie>,
+    private readonly movieRepository: Repository<Movie>
   ) {}
 
   async create(createMovieDto: CreateMovieDto): Promise<Movie> {
     try {
       const movie = this.movieRepository.create({
         ...createMovieDto,
-        releaseDate: new Date(createMovieDto.releaseDate),
+        releaseDate: new Date(createMovieDto.releaseDate)
       });
       return await this.movieRepository.save(movie);
     } catch (error) {
@@ -35,7 +35,7 @@ export class MoviesService {
 
   async findAll(): Promise<Movie[]> {
     return await this.movieRepository.find({
-      order: { createdAt: 'DESC' },
+      order: { createdAt: 'DESC' }
     });
   }
 
@@ -84,7 +84,7 @@ export class MoviesService {
     if (query) {
       queryBuilder.where(
         '(movie.title ILIKE :query OR movie.description ILIKE :query)',
-        { query: `%${query}%` },
+        { query: `%${query}%` }
       );
     }
 
@@ -99,9 +99,32 @@ export class MoviesService {
       total,
       page,
       limit,
-      totalPages: Math.ceil(total / limit),
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
+  async findTrending(page: number = 1, limit: number = 10) {
+    if (page < 1) {
+      throw new BadRequestException('Page must be greater than or equal to 1');
+    }
+    if (limit < 1) {
+      throw new BadRequestException('Limit must be greater than or equal to 1');
+    }
+
+    const skip = (page - 1) * limit;
+    const queryBuilder = this.movieRepository.createQueryBuilder('movie');
+    queryBuilder.where('movie.trending = :trending', { trending: true });
+    const [movies, total] = await queryBuilder
+      .skip(skip)
+      .take(limit)
+      .orderBy('movie.createdAt', 'DESC')
+      .getManyAndCount();
+    return {
+      data: movies,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
     };
   }
 }
-
-
