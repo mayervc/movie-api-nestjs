@@ -8,7 +8,9 @@ import {
   Delete,
   HttpCode,
   HttpStatus,
-  ParseIntPipe
+  ParseIntPipe,
+  Query,
+  DefaultValuePipe
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -48,6 +50,17 @@ export class MoviesController {
   @ApiResponse({ status: 200, description: 'List of movies' })
   findAll() {
     return this.moviesService.findAll();
+  }
+
+  @Get('trending')
+  @Public()
+  @ApiOperation({ summary: 'Get trending movies' })
+  @ApiResponse({ status: 200, description: 'List of trending movies' })
+  async getTrending(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number = 1,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10
+  ) {
+    return this.moviesService.findTrending(page, limit);
   }
 
   @Get(':id')
