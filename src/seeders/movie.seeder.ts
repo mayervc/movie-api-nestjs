@@ -199,7 +199,7 @@ export async function seedMovies(dataSource: DataSource): Promise<void> {
     }
   ]);
 
-  console.log('✅ Seeders ejecutados correctamente');
+  console.log('Seeders executed successfully');
   console.log(`   - ${movies.length} películas creadas`);
   console.log(`   - ${actors.length} actores creados`);
   console.log(`   - ${await castRepository.count()} relaciones cast creadas`);

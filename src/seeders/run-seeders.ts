@@ -24,7 +24,7 @@ async function runSeeders() {
 
   try {
     await dataSource.initialize();
-    console.log('📦 Conectado a la base de datos');
+    console.log('Connected to database');
 
     // Limpiar datos existentes (opcional)
     const castRepository = dataSource.getRepository(Cast);
@@ -32,7 +32,7 @@ async function runSeeders() {
     const actorRepository = dataSource.getRepository(Actor);
     const userRepository = dataSource.getRepository(User);
 
-    console.log('🧹 Limpiando datos existentes...');
+    console.log('Cleaning existing data...');
     // Limpiar en orden: primero cast (tabla con foreign keys), luego movies, actors y users
     await castRepository.query('TRUNCATE TABLE "cast" CASCADE');
     await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
@@ -40,19 +40,19 @@ async function runSeeders() {
     await userRepository.query('TRUNCATE TABLE "users" CASCADE');
 
     // Ejecutar seeders
-    console.log('👤 Insertando usuarios...');
+    console.log('Inserting users...');
     await seedUsers(dataSource);
     await seedMovies(dataSource);
 
     await dataSource.destroy();
-    console.log('✅ Seeders completados exitosamente');
+    console.log('Seeders completed successfully');
     console.log('');
-    console.log('🔑 Usuarios para pruebas:');
+    console.log('Test users:');
     console.log('   Admin: admin@example.com / admin123');
     console.log('   User:  user@example.com / user123');
     process.exit(0);
   } catch (error) {
-    console.error('❌ Error ejecutando seeders:', error);
+    console.error('Error running seeders:', error);
     await dataSource.destroy();
     process.exit(1);
   }

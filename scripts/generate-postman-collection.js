@@ -91,10 +91,10 @@ async function generatePostmanCollection() {
 
       // Guardar la colección
       fs.writeFileSync(OUTPUT_FILE, JSON.stringify(collection, null, 2));
-      console.log('✅ Postman Collection generated successfully!');
-      console.log('📁 Saved to:', OUTPUT_FILE);
+      console.log('Postman Collection generated successfully.');
+      console.log('Saved to:', OUTPUT_FILE);
       console.log(
-        '\n⚠️  Note: Tests personalizados deben agregarse manualmente en Postman'
+        '\nNote: Custom tests must be added manually in Postman'
       );
       console.log('   y luego exportarse nuevamente para mantenerlos.');
     } else {

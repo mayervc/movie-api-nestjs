@@ -32,7 +32,7 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
     const existing = await userRepository.findOne({ where: { email: u.email } });
     if (!existing) {
       await userRepository.save(userRepository.create(u));
-      console.log(`  👤 Usuario creado: ${u.email} (rol: ${u.role})`);
+      console.log(`  User created: ${u.email} (role: ${u.role})`);
     }
   }
 }

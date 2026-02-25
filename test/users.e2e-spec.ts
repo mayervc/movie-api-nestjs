@@ -7,7 +7,7 @@ import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
-describe('Users (e2e) - STR-217 GET /users/me', () => {
+describe('Users (e2e) - GET /users/me', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let userToken: string;
