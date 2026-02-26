@@ -6,8 +6,6 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
 import { User } from './entities/user.entity';
-import { UserRole } from './enums/user-role.enum';
-import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { hashPassword } from '../common/utils/password.util';
 
 export type CreateUserInput = Pick<
@@ -79,13 +77,4 @@ export class UsersService {
     return await this.userRepository.save(user);
   }
 
-  async createByAdmin(dto: CreateUserByAdminDto): Promise<User> {
-    return this.create({
-      email: dto.email,
-      password: dto.password,
-      firstName: dto.firstName ?? null,
-      lastName: dto.lastName ?? null,
-      role: UserRole.ADMIN
-    });
-  }
 }

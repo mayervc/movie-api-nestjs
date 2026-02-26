@@ -49,7 +49,13 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
   async createAdmin(@Body() dto: CreateUserByAdminDto): Promise<UserResponseDto> {
-    const user = await this.usersService.createByAdmin(dto);
+    const user = await this.usersService.create({
+      email: dto.email,
+      password: dto.password,
+      firstName: dto.firstName ?? null,
+      lastName: dto.lastName ?? null,
+      role: UserRole.ADMIN
+    });
     return toUserResponse(user);
   }
 }
