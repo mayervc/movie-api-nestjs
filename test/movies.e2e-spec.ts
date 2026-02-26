@@ -32,6 +32,39 @@ describe('MoviesController (e2e)', () => {
     }
   });
 
+  describe('GET /movies (STR-221)', () => {
+    it('should return all movies (public)', async () => {
+      await movieRepository.save([
+        {
+          title: 'Movie A',
+          releaseDate: new Date('2023-01-01'),
+          duration: 90
+        },
+        {
+          title: 'Movie B',
+          releaseDate: new Date('2023-01-02'),
+          duration: 100
+        }
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/movies')
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(2);
+      expect(response.body.map((m: { title: string }) => m.title).sort()).toEqual(['Movie A', 'Movie B']);
+    });
+
+    it('should return empty array when no movies', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/movies')
+        .expect(200);
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(0);
+    });
+  });
+
   describe('GET /movies/trending', () => {
     it('should return only trending movies', async () => {
       // Arrange: Crear películas de prueba
@@ -264,6 +297,84 @@ describe('MoviesController (e2e)', () => {
       // Assert: Debe retornar 200, no 401
       expect(response.status).toBe(200);
       expect(response.body.data).toBeDefined();
+    });
+  });
+
+  describe('GET /movies/popular', () => {
+    it('should return popular (trending) movies with pagination', async () => {
+      await movieRepository.save([
+        {
+          title: 'Popular One',
+          releaseDate: new Date('2023-01-01'),
+          duration: 90,
+          trending: true
+        },
+        {
+          title: 'Popular Two',
+          releaseDate: new Date('2023-01-02'),
+          duration: 100,
+          trending: true
+        }
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/popular?page=1&limit=10')
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(2);
+      expect(response.body.total).toBe(2);
+      expect(response.body.page).toBe(1);
+      expect(response.body.limit).toBe(10);
+    });
+  });
+
+  describe('GET /movies/top-rated', () => {
+    it('should return movies ordered by rating desc', async () => {
+      await movieRepository.save([
+        {
+          title: 'Low Rated',
+          releaseDate: new Date('2023-01-01'),
+          duration: 90,
+          rating: 5.0
+        },
+        {
+          title: 'High Rated',
+          releaseDate: new Date('2023-01-02'),
+          duration: 100,
+          rating: 9.0
+        }
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/top-rated?page=1&limit=10')
+        .expect(200);
+
+      expect(response.body.data.length).toBeGreaterThanOrEqual(2);
+      expect(response.body.data[0].title).toBe('High Rated');
+      expect(response.body.data[0].rating).toBe('9.0');
+    });
+  });
+
+  describe('GET /movies/search (query params)', () => {
+    it('should search by q and return paginated results', async () => {
+      await movieRepository.save({
+        title: 'Unique Searchable Title XYZ',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90,
+        description: 'Some description'
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/search?q=Unique+Searchable&page=1&limit=10')
+        .expect(200);
+
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.page).toBe(1);
+      expect(response.body.limit).toBe(10);
+      const found = response.body.data.find(
+        (m: { title: string }) => m.title === 'Unique Searchable Title XYZ'
+      );
+      expect(found).toBeDefined();
     });
   });
 });
