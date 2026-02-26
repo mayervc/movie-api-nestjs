@@ -1,4 +1,4 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -7,7 +7,10 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UserResponseDto } from './dto/user-response.dto';
+import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from './enums/user-role.enum';
 import { User } from './entities/user.entity';
 
 function toUserResponse(user: User): UserResponseDto {
@@ -35,5 +38,24 @@ export class UsersController {
   async getMe(@CurrentUser() user: User): Promise<UserResponseDto> {
     const full = await this.usersService.findById(user.id);
     return toUserResponse(full);
+  }
+
+  @Post('admin')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create admin user (ADMIN only)' })
+  @ApiResponse({ status: 201, description: 'Admin user created' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async createAdmin(@Body() dto: CreateUserByAdminDto): Promise<UserResponseDto> {
+    const user = await this.usersService.create({
+      email: dto.email,
+      password: dto.password,
+      firstName: dto.firstName ?? null,
+      lastName: dto.lastName ?? null,
+      role: UserRole.ADMIN
+    });
+    return toUserResponse(user);
   }
 }

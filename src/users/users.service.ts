@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
 import { User } from './entities/user.entity';
+import { hashPassword } from '../common/utils/password.util';
 
 export type CreateUserInput = Pick<
   User,
@@ -34,14 +35,21 @@ export class UsersService {
   }
 
   async create(userData: CreateUserInput): Promise<User> {
-    // Verificar si el email ya existe
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
 
+    const password = userData.password
+      ? await hashPassword(userData.password)
+      : undefined;
+    const toSave = {
+      ...userData,
+      ...(password !== undefined && { password })
+    };
+
     try {
-      return await this.userRepository.save(userData);
+      return await this.userRepository.save(toSave);
     } catch (error) {
       // Manejar error de constraint único en caso de race condition
       if (
@@ -68,4 +76,5 @@ export class UsersService {
     Object.assign(user, updates);
     return await this.userRepository.save(user);
   }
+
 }

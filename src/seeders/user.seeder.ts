@@ -1,15 +1,13 @@
 import { DataSource } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
-
-const SALT_ROUNDS = 10;
+import { hashPassword } from '../common/utils/password.util';
 
 export async function seedUsers(dataSource: DataSource): Promise<void> {
   const userRepository = dataSource.getRepository(User);
 
-  const adminPassword = await bcrypt.hash('admin123', SALT_ROUNDS);
-  const userPassword = await bcrypt.hash('user123', SALT_ROUNDS);
+  const adminPassword = await hashPassword('admin123');
+  const userPassword = await hashPassword('user123');
 
   const users = [
     {

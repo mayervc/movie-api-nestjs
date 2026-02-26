@@ -43,13 +43,9 @@ export class AuthService {
   }
 
   async signup(signupDto: SignupDto): Promise<SignupResponseDto> {
-    // Hashear la contraseña antes de guardar
-    const hashedPassword = await bcrypt.hash(signupDto.password, 10);
-
-    // Crear el usuario con el password hasheado y rol por defecto 'user'
     const user = await this.usersService.create({
       email: signupDto.email,
-      password: hashedPassword,
+      password: signupDto.password,
       firstName: signupDto.firstName,
       lastName: signupDto.lastName,
       role: UserRole.USER
