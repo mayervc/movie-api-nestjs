@@ -1,4 +1,13 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  ParseIntPipe,
+  ForbiddenException
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -8,6 +17,7 @@ import {
 import { UsersService } from './users.service';
 import { UserResponseDto } from './dto/user-response.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from './enums/user-role.enum';
@@ -75,6 +85,28 @@ export class UsersController {
       lastName: dto.lastName ?? null,
       role: UserRole.VENDOR
     });
+    return toUserResponse(user);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Update user (ADMIN or resource owner)' })
+  @ApiResponse({ status: 200, description: 'User updated' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdateUserDto,
+    @CurrentUser() currentUser: User
+  ): Promise<UserResponseDto> {
+    const isAdmin = currentUser.role === UserRole.ADMIN;
+    const isOwner = currentUser.id === id;
+    if (!isAdmin && !isOwner) {
+      throw new ForbiddenException('Not allowed to update this user');
+    }
+    const user = await this.usersService.update(id, dto);
     return toUserResponse(user);
   }
 }
