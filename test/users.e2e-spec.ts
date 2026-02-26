@@ -7,11 +7,13 @@ import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
 import * as bcrypt from 'bcrypt';
 
-describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors', () => {
+describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors, PATCH /users/:id', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
   let userToken: string;
   let adminToken: string;
+  let userId: number;
+  let otherUserId: number;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -24,7 +26,8 @@ describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors', 
 
     const userPassword = await bcrypt.hash('User123!', 10);
     const adminPassword = await bcrypt.hash('Admin123!', 10);
-    await userRepository.save(
+    const otherPassword = await bcrypt.hash('Other123!', 10);
+    const createdUser = await userRepository.save(
       userRepository.create({
         email: 'user@test.com',
         password: userPassword,
@@ -33,6 +36,7 @@ describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors', 
         role: UserRole.USER
       })
     );
+    userId = createdUser.id;
     await userRepository.save(
       userRepository.create({
         email: 'admin@test.com',
@@ -42,6 +46,16 @@ describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors', 
         role: UserRole.ADMIN
       })
     );
+    const createdOther = await userRepository.save(
+      userRepository.create({
+        email: 'other@test.com',
+        password: otherPassword,
+        firstName: 'Other',
+        lastName: 'User',
+        role: UserRole.USER
+      })
+    );
+    otherUserId = createdOther.id;
 
     const userLogin = await request(app.getHttpServer())
       .post('/auth/login')
@@ -168,6 +182,68 @@ describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors', 
         .post('/users/vendors')
         .set('Authorization', 'Bearer ' + adminToken)
         .send({ email: 'invalid', password: 'short' })
+        .expect(400);
+    });
+  });
+
+  describe('PATCH /users/:id', () => {
+    it('should update user when called by resource owner', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/users/${userId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ firstName: 'Updated', lastName: 'Name' })
+        .expect(200);
+      expect(res.body.firstName).toBe('Updated');
+      expect(res.body.lastName).toBe('Name');
+      expect(res.body.email).toBe('user@test.com');
+      expect(res.body.password).toBeUndefined();
+    });
+
+    it('should update user when called by ADMIN', async () => {
+      const res = await request(app.getHttpServer())
+        .patch(`/users/${userId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ email: 'updated@test.com' })
+        .expect(200);
+      expect(res.body.email).toBe('updated@test.com');
+    });
+
+    it('should return 403 when non-owner non-ADMIN updates another user', async () => {
+      await request(app.getHttpServer())
+        .patch(`/users/${otherUserId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ firstName: 'Hacked' })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}`)
+        .send({ firstName: 'Updated' })
+        .expect(401);
+    });
+
+    it('should return 404 when user does not exist', async () => {
+      await request(app.getHttpServer())
+        .patch('/users/99999')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ firstName: 'Updated' })
+        .expect(404);
+    });
+
+    it('should return 409 when new email already exists', async () => {
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ email: 'admin@test.com' })
+        .expect(409);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      await request(app.getHttpServer())
+        .patch(`/users/${userId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ email: 'invalid-email' })
         .expect(400);
     });
   });
