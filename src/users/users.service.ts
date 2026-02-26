@@ -1,4 +1,8 @@
-import { Injectable, ConflictException } from '@nestjs/common';
+import {
+  Injectable,
+  ConflictException,
+  NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -21,6 +25,14 @@ export class UsersService {
     });
   }
 
+  async findById(id: number): Promise<User> {
+    const user = await this.userRepository.findOne({ where: { id } });
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
+    }
+    return user;
+  }
+
   async create(userData: CreateUserInput): Promise<User> {
     // Verificar si el email ya existe
     const existingUser = await this.findByEmail(userData.email);
@@ -40,5 +52,20 @@ export class UsersService {
       }
       throw error;
     }
+  }
+
+  async update(
+    id: number,
+    updates: Partial<Pick<User, 'firstName' | 'lastName' | 'email'>>
+  ): Promise<User> {
+    const user = await this.findById(id);
+    if (updates.email && updates.email !== user.email) {
+      const existing = await this.findByEmail(updates.email);
+      if (existing) {
+        throw new ConflictException('Email already exists');
+      }
+    }
+    Object.assign(user, updates);
+    return await this.userRepository.save(user);
   }
 }
