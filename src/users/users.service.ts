@@ -5,12 +5,17 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
+import { UserRole } from './enums/user-role.enum';
+import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 
 export type CreateUserInput = Pick<
   User,
   'email' | 'password' | 'firstName' | 'lastName' | 'role'
 >;
+
+const SALT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService {
@@ -67,5 +72,16 @@ export class UsersService {
     }
     Object.assign(user, updates);
     return await this.userRepository.save(user);
+  }
+
+  async createByAdmin(dto: CreateUserByAdminDto): Promise<User> {
+    const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
+    return this.create({
+      email: dto.email,
+      password: hashedPassword,
+      firstName: dto.firstName ?? null,
+      lastName: dto.lastName ?? null,
+      role: UserRole.ADMIN
+    });
   }
 }
