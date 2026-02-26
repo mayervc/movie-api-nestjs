@@ -58,4 +58,23 @@ export class UsersController {
     });
     return toUserResponse(user);
   }
+
+  @Post('vendors')
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({ summary: 'Create vendor user (ADMIN only)' })
+  @ApiResponse({ status: 201, description: 'Vendor user created' })
+  @ApiResponse({ status: 400, description: 'Validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden' })
+  @ApiResponse({ status: 409, description: 'Email already exists' })
+  async createVendor(@Body() dto: CreateUserByAdminDto): Promise<UserResponseDto> {
+    const user = await this.usersService.create({
+      email: dto.email,
+      password: dto.password,
+      firstName: dto.firstName ?? null,
+      lastName: dto.lastName ?? null,
+      role: UserRole.VENDOR
+    });
+    return toUserResponse(user);
+  }
 }
