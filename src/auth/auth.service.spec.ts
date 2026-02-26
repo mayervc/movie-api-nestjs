@@ -177,9 +177,6 @@ describe('AuthService', () => {
 
       mockUsersService.create.mockResolvedValue(createdUser);
       mockJwtService.sign.mockReturnValue(expectedToken);
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockResolvedValue('$2b$10$hashedPassword' as never);
 
       // Act
       const result = await authService.signup(signupDto);
@@ -193,10 +190,9 @@ describe('AuthService', () => {
         },
         token: expectedToken
       });
-      expect(bcrypt.hash).toHaveBeenCalledWith(signupDto.password, 10);
       expect(mockUsersService.create).toHaveBeenCalledWith({
         email: signupDto.email,
-        password: '$2b$10$hashedPassword',
+        password: signupDto.password,
         firstName: signupDto.firstName,
         lastName: signupDto.lastName,
         role: UserRole.USER
@@ -209,9 +205,6 @@ describe('AuthService', () => {
       // Arrange
       const conflictError = new ConflictException('Email already exists');
       mockUsersService.create.mockRejectedValue(conflictError);
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockResolvedValue('$2b$10$hashedPassword' as never);
 
       // Act & Assert
       await expect(authService.signup(signupDto)).rejects.toThrow(
@@ -220,11 +213,16 @@ describe('AuthService', () => {
       await expect(authService.signup(signupDto)).rejects.toThrow(
         'Email already exists'
       );
-      expect(bcrypt.hash).toHaveBeenCalledWith(signupDto.password, 10);
-      expect(mockUsersService.create).toHaveBeenCalled();
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        email: signupDto.email,
+        password: signupDto.password,
+        firstName: signupDto.firstName,
+        lastName: signupDto.lastName,
+        role: UserRole.USER
+      });
     });
 
-    it('should hash password before saving', async () => {
+    it('should call create with plain password (hashing is done in UsersService)', async () => {
       // Arrange
       const createdUser: User = {
         id: 2,
@@ -236,27 +234,21 @@ describe('AuthService', () => {
         createdAt: new Date(),
         updatedAt: new Date()
       };
-      const hashedPassword = '$2b$10$hashedPassword123';
 
       mockUsersService.create.mockResolvedValue(createdUser);
       mockJwtService.sign.mockReturnValue('token');
-      jest.spyOn(bcrypt, 'hash').mockResolvedValue(hashedPassword as never);
 
       // Act
       await authService.signup(signupDto);
 
-      // Assert
-      expect(bcrypt.hash).toHaveBeenCalledWith(signupDto.password, 10);
-      expect(mockUsersService.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          password: hashedPassword
-        })
-      );
-      expect(mockUsersService.create).not.toHaveBeenCalledWith(
-        expect.objectContaining({
-          password: signupDto.password
-        })
-      );
+      // Assert: AuthService passes plain password; UsersService.create hashes it
+      expect(mockUsersService.create).toHaveBeenCalledWith({
+        email: signupDto.email,
+        password: signupDto.password,
+        firstName: signupDto.firstName,
+        lastName: signupDto.lastName,
+        role: UserRole.USER
+      });
     });
 
     it('should generate JWT token correctly', async () => {
@@ -279,9 +271,6 @@ describe('AuthService', () => {
 
       mockUsersService.create.mockResolvedValue(createdUser);
       mockJwtService.sign.mockReturnValue(expectedToken);
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockResolvedValue('$2b$10$hashedPassword' as never);
 
       // Act
       const result = await authService.signup(signupDto);
@@ -307,9 +296,6 @@ describe('AuthService', () => {
 
       mockUsersService.create.mockResolvedValue(createdUser);
       mockJwtService.sign.mockReturnValue('token');
-      jest
-        .spyOn(bcrypt, 'hash')
-        .mockResolvedValue('$2b$10$hashedPassword' as never);
 
       // Act
       const result = await authService.signup(signupDto);

@@ -5,17 +5,15 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, QueryFailedError } from 'typeorm';
-import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { UserRole } from './enums/user-role.enum';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
+import { hashPassword } from '../common/utils/password.util';
 
 export type CreateUserInput = Pick<
   User,
   'email' | 'password' | 'firstName' | 'lastName' | 'role'
 >;
-
-const SALT_ROUNDS = 10;
 
 @Injectable()
 export class UsersService {
@@ -39,14 +37,21 @@ export class UsersService {
   }
 
   async create(userData: CreateUserInput): Promise<User> {
-    // Verificar si el email ya existe
     const existingUser = await this.findByEmail(userData.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
     }
 
+    const password = userData.password
+      ? await hashPassword(userData.password)
+      : undefined;
+    const toSave = {
+      ...userData,
+      ...(password !== undefined && { password })
+    };
+
     try {
-      return await this.userRepository.save(userData);
+      return await this.userRepository.save(toSave);
     } catch (error) {
       // Manejar error de constraint único en caso de race condition
       if (
@@ -75,10 +80,9 @@ export class UsersService {
   }
 
   async createByAdmin(dto: CreateUserByAdminDto): Promise<User> {
-    const hashedPassword = await bcrypt.hash(dto.password, SALT_ROUNDS);
     return this.create({
       email: dto.email,
-      password: hashedPassword,
+      password: dto.password,
       firstName: dto.firstName ?? null,
       lastName: dto.lastName ?? null,
       role: UserRole.ADMIN
