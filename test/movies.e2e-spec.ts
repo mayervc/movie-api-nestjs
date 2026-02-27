@@ -355,7 +355,7 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
-  describe('GET /movies/search (query params)', () => {
+  describe('GET /movies/search (query params) (STR-223)', () => {
     it('should search by q and return paginated results', async () => {
       await movieRepository.save({
         title: 'Unique Searchable Title XYZ',
@@ -375,6 +375,26 @@ describe('MoviesController (e2e)', () => {
         (m: { title: string }) => m.title === 'Unique Searchable Title XYZ'
       );
       expect(found).toBeDefined();
+    });
+
+    it('should return paginated structure with default page and limit when q is empty', async () => {
+      await movieRepository.save({
+        title: 'Any Movie',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/search?page=1&limit=5')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        data: expect.any(Array),
+        total: expect.any(Number),
+        page: 1,
+        limit: 5,
+        totalPages: expect.any(Number)
+      });
     });
   });
 });
