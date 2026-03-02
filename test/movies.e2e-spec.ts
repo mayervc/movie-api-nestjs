@@ -32,7 +32,7 @@ describe('MoviesController (e2e)', () => {
     }
   });
 
-  describe('GET /movies (STR-221)', () => {
+  describe('GET /movies', () => {
     it('should return all movies (public)', async () => {
       await movieRepository.save([
         {
@@ -300,7 +300,7 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
-  describe('GET /movies/popular (STR-224)', () => {
+  describe('GET /movies/popular', () => {
     it('should return popular (trending) movies with pagination', async () => {
       await movieRepository.save([
         {
