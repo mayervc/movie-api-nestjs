@@ -397,5 +397,25 @@ describe('MoviesController (e2e)', () => {
       );
       expect(found).toBeDefined();
     });
+
+    it('should return paginated structure with default page and limit when q is empty', async () => {
+      await movieRepository.save({
+        title: 'Any Movie',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/search?page=1&limit=5')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        data: expect.any(Array),
+        total: expect.any(Number),
+        page: 1,
+        limit: 5,
+        totalPages: expect.any(Number)
+      });
+    });
   });
 });
