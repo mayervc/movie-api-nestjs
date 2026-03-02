@@ -32,7 +32,7 @@ describe('MoviesController (e2e)', () => {
     }
   });
 
-  describe('GET /movies (STR-221)', () => {
+  describe('GET /movies', () => {
     it('should return all movies (public)', async () => {
       await movieRepository.save([
         {
@@ -355,7 +355,7 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
-  describe('GET /movies/search (query params) (STR-223)', () => {
+  describe('GET /movies/search (query params)', () => {
     it('should search by q and return paginated results', async () => {
       await movieRepository.save({
         title: 'Unique Searchable Title XYZ',
