@@ -2,23 +2,24 @@ import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { Movie } from '../src/movies/entities/movie.entity';
+import { User } from '../src/users/entities/user.entity';
+import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
 
 describe('MoviesController (e2e)', () => {
   let app: INestApplication;
   let movieRepository: Repository<Movie>;
+  let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    // La aplicación de test se crea después de que el setup global complete
-    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
-
-    // Obtener MovieRepository para los tests
     const testModule = getTestModule();
     movieRepository = testModule.get<Repository<Movie>>(
       getRepositoryToken(Movie)
     );
+    userRepository = testModule.get(getRepositoryToken(User));
   });
 
   beforeEach(async () => {
@@ -62,6 +63,84 @@ describe('MoviesController (e2e)', () => {
         .expect(200);
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body).toHaveLength(0);
+    });
+  });
+
+  describe('POST /movies', () => {
+    let adminToken: string;
+    let userToken: string;
+
+    beforeEach(async () => {
+      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      const adminPassword = await bcrypt.hash('Admin123!', 10);
+      const userPassword = await bcrypt.hash('User123!', 10);
+      await userRepository.save(
+        userRepository.create({
+          email: 'admin@test.com',
+          password: adminPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: UserRole.ADMIN
+        })
+      );
+      await userRepository.save(
+        userRepository.create({
+          email: 'user@test.com',
+          password: userPassword,
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        })
+      );
+      const adminLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'admin@test.com', password: 'Admin123!' });
+      adminToken = adminLogin.body.access_token;
+      const userLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@test.com', password: 'User123!' });
+      userToken = userLogin.body.access_token;
+    });
+
+    const validBody = {
+      title: 'New Movie',
+      releaseDate: '2023-06-15',
+      duration: 120
+    };
+
+    it('should create movie when called by ADMIN', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/movies')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send(validBody)
+        .expect(201);
+
+      expect(response.body.title).toBe(validBody.title);
+      expect(response.body.duration).toBe(validBody.duration);
+      expect(response.body.id).toBeDefined();
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post('/movies')
+        .set('Authorization', 'Bearer ' + userToken)
+        .send(validBody)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post('/movies')
+        .send(validBody)
+        .expect(401);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      await request(app.getHttpServer())
+        .post('/movies')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ title: '', releaseDate: 'invalid', duration: -1 })
+        .expect(400);
     });
   });
 
