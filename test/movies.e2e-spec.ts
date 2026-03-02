@@ -390,6 +390,33 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
+  describe('GET /movies/:id', () => {
+    it('should return a single movie by ID including cast (public)', async () => {
+      const created = await movieRepository.save({
+        title: 'Single Movie',
+        releaseDate: new Date('2023-01-01'),
+        duration: 120,
+        description: 'A movie'
+      });
+
+      const response = await request(app.getHttpServer())
+        .get(`/movies/${created.id}`)
+        .expect(200);
+
+      expect(response.body.id).toBe(created.id);
+      expect(response.body.title).toBe('Single Movie');
+      expect(response.body.duration).toBe(120);
+      expect(response.body).toHaveProperty('cast');
+      expect(Array.isArray(response.body.cast)).toBe(true);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .get('/movies/99999')
+        .expect(404);
+    });
+  });
+
   describe('GET /movies/search (query params)', () => {
     it('should search by q and return paginated results', async () => {
       await movieRepository.save({
