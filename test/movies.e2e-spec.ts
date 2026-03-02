@@ -32,7 +32,7 @@ describe('MoviesController (e2e)', () => {
     }
   });
 
-  describe('GET /movies (STR-221)', () => {
+  describe('GET /movies', () => {
     it('should return all movies (public)', async () => {
       await movieRepository.save([
         {
@@ -325,6 +325,27 @@ describe('MoviesController (e2e)', () => {
       expect(response.body.total).toBe(2);
       expect(response.body.page).toBe(1);
       expect(response.body.limit).toBe(10);
+    });
+
+    it('should return paginated structure and only trending movies', async () => {
+      await movieRepository.save([
+        { title: 'Trending A', releaseDate: new Date('2023-01-01'), duration: 90, trending: true },
+        { title: 'Not Trending', releaseDate: new Date('2023-01-02'), duration: 90, trending: false }
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/popular')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        data: expect.any(Array),
+        total: expect.any(Number),
+        page: 1,
+        limit: 10,
+        totalPages: expect.any(Number)
+      });
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].title).toBe('Trending A');
     });
   });
 
