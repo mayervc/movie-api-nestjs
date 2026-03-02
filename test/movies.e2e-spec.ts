@@ -349,7 +349,7 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
-  describe('GET /movies/top-rated (STR-225)', () => {
+  describe('GET /movies/top-rated', () => {
     it('should return movies ordered by rating desc', async () => {
       await movieRepository.save([
         {
