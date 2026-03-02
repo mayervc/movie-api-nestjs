@@ -374,6 +374,20 @@ describe('MoviesController (e2e)', () => {
       expect(response.body.data[0].title).toBe('High Rated');
       expect(response.body.data[0].rating).toBe('9.0');
     });
+
+    it('should return paginated structure (public)', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/movies/top-rated')
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        data: expect.any(Array),
+        total: expect.any(Number),
+        page: 1,
+        limit: 10,
+        totalPages: expect.any(Number)
+      });
+    });
   });
 
   describe('GET /movies/search (query params)', () => {
