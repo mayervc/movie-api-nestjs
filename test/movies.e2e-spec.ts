@@ -144,6 +144,92 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
+  describe('PATCH /movies/:id', () => {
+    let adminToken: string;
+    let userToken: string;
+    let movieId: number;
+
+    beforeEach(async () => {
+      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      const adminPassword = await bcrypt.hash('Admin123!', 10);
+      const userPassword = await bcrypt.hash('User123!', 10);
+      await userRepository.save(
+        userRepository.create({
+          email: 'admin@test.com',
+          password: adminPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: UserRole.ADMIN
+        })
+      );
+      await userRepository.save(
+        userRepository.create({
+          email: 'user@test.com',
+          password: userPassword,
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        })
+      );
+      const adminLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'admin@test.com', password: 'Admin123!' });
+      adminToken = adminLogin.body.access_token;
+      const userLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@test.com', password: 'User123!' });
+      userToken = userLogin.body.access_token;
+      const movie = await movieRepository.save({
+        title: 'Movie To Update',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+      movieId = movie.id;
+    });
+
+    it('should update movie when called by ADMIN', async () => {
+      const response = await request(app.getHttpServer())
+        .patch(`/movies/${movieId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ title: 'Updated Title', duration: 100 })
+        .expect(200);
+
+      expect(response.body.title).toBe('Updated Title');
+      expect(response.body.duration).toBe(100);
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .patch(`/movies/${movieId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ title: 'Hacked' })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .patch(`/movies/${movieId}`)
+        .send({ title: 'Updated' })
+        .expect(401);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .patch('/movies/99999')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ title: 'Updated' })
+        .expect(404);
+    });
+
+    it('should return 400 when body is empty', async () => {
+      await request(app.getHttpServer())
+        .patch(`/movies/${movieId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({})
+        .expect(400);
+    });
+  });
+
   describe('GET /movies/trending', () => {
     it('should return only trending movies', async () => {
       // Arrange: Crear películas de prueba
