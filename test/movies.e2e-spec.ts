@@ -230,6 +230,83 @@ describe('MoviesController (e2e)', () => {
     });
   });
 
+  describe('DELETE /movies/:id', () => {
+    let adminToken: string;
+    let userToken: string;
+    let movieId: number;
+
+    beforeEach(async () => {
+      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      const adminPassword = await bcrypt.hash('Admin123!', 10);
+      const userPassword = await bcrypt.hash('User123!', 10);
+      await userRepository.save(
+        userRepository.create({
+          email: 'admin@test.com',
+          password: adminPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: UserRole.ADMIN
+        })
+      );
+      await userRepository.save(
+        userRepository.create({
+          email: 'user@test.com',
+          password: userPassword,
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        })
+      );
+      const adminLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'admin@test.com', password: 'Admin123!' });
+      adminToken = adminLogin.body.access_token;
+      const userLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@test.com', password: 'User123!' });
+      userToken = userLogin.body.access_token;
+      const movie = await movieRepository.save({
+        title: 'Movie To Delete',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+      movieId = movie.id;
+    });
+
+    it('should delete movie when called by ADMIN', async () => {
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(204);
+
+      const found = await movieRepository.findOne({ where: { id: movieId } });
+      expect(found).toBeNull();
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .expect(403);
+
+      const found = await movieRepository.findOne({ where: { id: movieId } });
+      expect(found).not.toBeNull();
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}`)
+        .expect(401);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete('/movies/99999')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(404);
+    });
+  });
+
   describe('GET /movies/trending', () => {
     it('should return only trending movies', async () => {
       // Arrange: Crear películas de prueba
