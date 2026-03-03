@@ -624,4 +624,43 @@ describe('MoviesController (e2e)', () => {
       });
     });
   });
+
+  describe('POST /movies/search', () => {
+    it('should search by body query and return paginated results (public)', async () => {
+      await movieRepository.save({
+        title: 'Body Searchable Movie ABC',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90,
+        description: 'Searchable description'
+      });
+
+      const response = await request(app.getHttpServer())
+        .post('/movies/search')
+        .send({ query: 'Body Searchable', page: 1, limit: 10 })
+        .expect(200);
+
+      expect(response.body).toMatchObject({
+        data: expect.any(Array),
+        total: expect.any(Number),
+        page: 1,
+        limit: 10,
+        totalPages: expect.any(Number)
+      });
+      const found = response.body.data.find(
+        (m: { title: string }) => m.title === 'Body Searchable Movie ABC'
+      );
+      expect(found).toBeDefined();
+    });
+
+    it('should work without auth (public endpoint)', async () => {
+      const response = await request(app.getHttpServer())
+        .post('/movies/search')
+        .send({ query: 'test', page: 1, limit: 5 })
+        .expect(200);
+
+      expect(response.body).toHaveProperty('data');
+      expect(response.body).toHaveProperty('total');
+      expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
 });
