@@ -23,7 +23,7 @@ beforeAll(async () => {
 
   dbHelper = new TestDatabaseHelper();
   await dbHelper.setup();
-  await waitForTablesToBeReady(['users', 'movies']);
+  await waitForTablesToBeReady(['users', 'movies', 'actors', 'cast']);
 });
 
 /**
