@@ -4,6 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { Movie } from '../src/movies/entities/movie.entity';
+import { Actor } from '../src/actors/entities/actor.entity';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
@@ -11,6 +12,7 @@ import { createTestApp, getTestModule } from './test-app.helper';
 describe('MoviesController (e2e)', () => {
   let app: INestApplication;
   let movieRepository: Repository<Movie>;
+  let actorRepository: Repository<Actor>;
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
@@ -18,6 +20,9 @@ describe('MoviesController (e2e)', () => {
     const testModule = getTestModule();
     movieRepository = testModule.get<Repository<Movie>>(
       getRepositoryToken(Movie)
+    );
+    actorRepository = testModule.get<Repository<Actor>>(
+      getRepositoryToken(Actor)
     );
     userRepository = testModule.get(getRepositoryToken(User));
   });
@@ -54,7 +59,9 @@ describe('MoviesController (e2e)', () => {
 
       expect(Array.isArray(response.body)).toBe(true);
       expect(response.body).toHaveLength(2);
-      expect(response.body.map((m: { title: string }) => m.title).sort()).toEqual(['Movie A', 'Movie B']);
+      expect(
+        response.body.map((m: { title: string }) => m.title).sort()
+      ).toEqual(['Movie A', 'Movie B']);
     });
 
     it('should return empty array when no movies', async () => {
@@ -571,8 +578,18 @@ describe('MoviesController (e2e)', () => {
 
     it('should return paginated structure and only trending movies', async () => {
       await movieRepository.save([
-        { title: 'Trending A', releaseDate: new Date('2023-01-01'), duration: 90, trending: true },
-        { title: 'Not Trending', releaseDate: new Date('2023-01-02'), duration: 90, trending: false }
+        {
+          title: 'Trending A',
+          releaseDate: new Date('2023-01-01'),
+          duration: 90,
+          trending: true
+        },
+        {
+          title: 'Not Trending',
+          releaseDate: new Date('2023-01-02'),
+          duration: 90,
+          trending: false
+        }
       ]);
 
       const response = await request(app.getHttpServer())
@@ -653,9 +670,7 @@ describe('MoviesController (e2e)', () => {
     });
 
     it('should return 404 when movie does not exist', async () => {
-      await request(app.getHttpServer())
-        .get('/movies/99999')
-        .expect(404);
+      await request(app.getHttpServer()).get('/movies/99999').expect(404);
     });
   });
 
@@ -738,6 +753,115 @@ describe('MoviesController (e2e)', () => {
       expect(response.body).toHaveProperty('data');
       expect(response.body).toHaveProperty('total');
       expect(Array.isArray(response.body.data)).toBe(true);
+    });
+  });
+
+  describe('POST /movies/:id/cast', () => {
+    let adminToken: string;
+    let userToken: string;
+    let movieId: number;
+    let actorId: number;
+
+    beforeEach(async () => {
+      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      await actorRepository.query('TRUNCATE TABLE "cast" CASCADE');
+      await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
+      const adminPassword = await bcrypt.hash('Admin123!', 10);
+      const userPassword = await bcrypt.hash('User123!', 10);
+      await userRepository.save(
+        userRepository.create({
+          email: 'admin@test.com',
+          password: adminPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: UserRole.ADMIN
+        })
+      );
+      await userRepository.save(
+        userRepository.create({
+          email: 'user@test.com',
+          password: userPassword,
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        })
+      );
+      const adminLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'admin@test.com', password: 'Admin123!' });
+      adminToken = adminLogin.body.access_token;
+      const userLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@test.com', password: 'User123!' });
+      userToken = userLogin.body.access_token;
+      const movie = await movieRepository.save({
+        title: 'Movie For Cast',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+      movieId = movie.id;
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Test',
+          lastName: 'Actor',
+          popularity: 80
+        })
+      );
+      actorId = actor.id;
+    });
+
+    it('should add actor to cast when called by ADMIN', async () => {
+      const response = await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({
+          actorId,
+          role: 'Lead',
+          characters: ['Character A']
+        })
+        .expect(201);
+
+      expect(response.body.movieId).toBe(movieId);
+      expect(response.body.actorId).toBe(actorId);
+      expect(response.body.role).toBe('Lead');
+      expect(response.body.characters).toEqual(['Character A']);
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(401);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .post('/movies/99999/cast')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(404);
+    });
+
+    it('should return 400 when actor already in cast', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Support', characters: ['B'] })
+        .expect(400);
     });
   });
 });
