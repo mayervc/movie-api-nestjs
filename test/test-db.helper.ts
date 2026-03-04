@@ -2,6 +2,36 @@ import { DataSource } from 'typeorm';
 import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**
+ * Tablas que pueden truncarse en tests E2E.
+ * Orden: de dependientes a independientes (cast → movies, actors → users).
+ */
+export const TRUNCATEABLE_TABLES = [
+  'cast',
+  'movies',
+  'actors',
+  'users'
+] as const;
+
+export type TruncateableTable = (typeof TRUNCATEABLE_TABLES)[number];
+
+/**
+ * Trunca las tablas indicadas en el orden correcto (respeta FKs).
+ * Usa el DataSource de la app de test (repository.manager.connection).
+ *
+ * @param dataSource - DataSource de la conexión activa (ej: userRepository.manager.connection)
+ * @param tables - Tablas a truncar (cast, movies, actors, users)
+ */
+export async function truncateTables(
+  dataSource: DataSource,
+  tables: TruncateableTable[]
+): Promise<void> {
+  const order = TRUNCATEABLE_TABLES.filter((t) => tables.includes(t));
+  for (const table of order) {
+    await dataSource.query(`TRUNCATE TABLE "${table}" CASCADE`);
+  }
+}
+
+/**
  * Helper para gestionar la base de datos de test
  * - Ejecuta migraciones
  * - Limpia la base de datos después de los tests
@@ -190,8 +220,8 @@ export class TestDatabaseHelper {
       try {
         const existingEnums = await this.dataSource.query(`
           SELECT typname FROM pg_type 
-          WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
-          AND typtype = 'e'
+            WHERE typnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
+            AND typtype = 'e'
         `);
 
         for (const enumType of existingEnums) {

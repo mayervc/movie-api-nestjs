@@ -1,19 +1,20 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import * as bcrypt from 'bcrypt';
+import { DataSource, Repository } from 'typeorm';
 import { Movie } from '../src/movies/entities/movie.entity';
 import { Actor } from '../src/actors/entities/actor.entity';
 import { User } from '../src/users/entities/user.entity';
-import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
+import { truncateTables } from './test-db.helper';
+import { createAdminAndUser } from './test-auth.helper';
 
 describe('MoviesController (e2e)', () => {
   let app: INestApplication;
   let movieRepository: Repository<Movie>;
   let actorRepository: Repository<Actor>;
   let userRepository: Repository<User>;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -25,17 +26,11 @@ describe('MoviesController (e2e)', () => {
       getRepositoryToken(Actor)
     );
     userRepository = testModule.get(getRepositoryToken(User));
+    dataSource = userRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    // Limpiar películas antes de cada test
-    if (movieRepository) {
-      try {
-        await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
-      } catch (error) {
-        // Ignorar errores si la tabla no existe o ya está vacía
-      }
-    }
+    await truncateTables(dataSource, ['movies']);
   });
 
   describe('GET /movies', () => {
@@ -78,35 +73,10 @@ describe('MoviesController (e2e)', () => {
     let userToken: string;
 
     beforeEach(async () => {
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      const adminPassword = await bcrypt.hash('Admin123!', 10);
-      const userPassword = await bcrypt.hash('User123!', 10);
-      await userRepository.save(
-        userRepository.create({
-          email: 'admin@test.com',
-          password: adminPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN
-        })
-      );
-      await userRepository.save(
-        userRepository.create({
-          email: 'user@test.com',
-          password: userPassword,
-          firstName: 'Regular',
-          lastName: 'User',
-          role: UserRole.USER
-        })
-      );
-      const adminLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'admin@test.com', password: 'Admin123!' });
-      adminToken = adminLogin.body.access_token;
-      const userLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'user@test.com', password: 'User123!' });
-      userToken = userLogin.body.access_token;
+      await truncateTables(dataSource, ['users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
     });
 
     const validBody = {
@@ -157,35 +127,10 @@ describe('MoviesController (e2e)', () => {
     let movieId: number;
 
     beforeEach(async () => {
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      const adminPassword = await bcrypt.hash('Admin123!', 10);
-      const userPassword = await bcrypt.hash('User123!', 10);
-      await userRepository.save(
-        userRepository.create({
-          email: 'admin@test.com',
-          password: adminPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN
-        })
-      );
-      await userRepository.save(
-        userRepository.create({
-          email: 'user@test.com',
-          password: userPassword,
-          firstName: 'Regular',
-          lastName: 'User',
-          role: UserRole.USER
-        })
-      );
-      const adminLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'admin@test.com', password: 'Admin123!' });
-      adminToken = adminLogin.body.access_token;
-      const userLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'user@test.com', password: 'User123!' });
-      userToken = userLogin.body.access_token;
+      await truncateTables(dataSource, ['users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
       const movie = await movieRepository.save({
         title: 'Movie To Update',
         releaseDate: new Date('2023-01-01'),
@@ -243,35 +188,10 @@ describe('MoviesController (e2e)', () => {
     let movieId: number;
 
     beforeEach(async () => {
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      const adminPassword = await bcrypt.hash('Admin123!', 10);
-      const userPassword = await bcrypt.hash('User123!', 10);
-      await userRepository.save(
-        userRepository.create({
-          email: 'admin@test.com',
-          password: adminPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN
-        })
-      );
-      await userRepository.save(
-        userRepository.create({
-          email: 'user@test.com',
-          password: userPassword,
-          firstName: 'Regular',
-          lastName: 'User',
-          role: UserRole.USER
-        })
-      );
-      const adminLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'admin@test.com', password: 'Admin123!' });
-      adminToken = adminLogin.body.access_token;
-      const userLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'user@test.com', password: 'User123!' });
-      userToken = userLogin.body.access_token;
+      await truncateTables(dataSource, ['users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
       const movie = await movieRepository.save({
         title: 'Movie To Delete',
         releaseDate: new Date('2023-01-01'),
@@ -763,37 +683,10 @@ describe('MoviesController (e2e)', () => {
     let actorId: number;
 
     beforeEach(async () => {
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      await actorRepository.query('TRUNCATE TABLE "cast" CASCADE');
-      await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
-      const adminPassword = await bcrypt.hash('Admin123!', 10);
-      const userPassword = await bcrypt.hash('User123!', 10);
-      await userRepository.save(
-        userRepository.create({
-          email: 'admin@test.com',
-          password: adminPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN
-        })
-      );
-      await userRepository.save(
-        userRepository.create({
-          email: 'user@test.com',
-          password: userPassword,
-          firstName: 'Regular',
-          lastName: 'User',
-          role: UserRole.USER
-        })
-      );
-      const adminLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'admin@test.com', password: 'Admin123!' });
-      adminToken = adminLogin.body.access_token;
-      const userLogin = await request(app.getHttpServer())
-        .post('/auth/login')
-        .send({ email: 'user@test.com', password: 'User123!' });
-      userToken = userLogin.body.access_token;
+      await truncateTables(dataSource, ['cast', 'movies', 'actors', 'users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
       const movie = await movieRepository.save({
         title: 'Movie For Cast',
         releaseDate: new Date('2023-01-01'),
@@ -872,30 +765,10 @@ describe('MoviesController (e2e)', () => {
     let actorId: number;
 
     beforeEach(async () => {
-      await actorRepository.query('TRUNCATE TABLE "cast" CASCADE');
-      await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
-      await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
-      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      const adminPassword = await bcrypt.hash('Admin123!', 10);
-      const userPassword = await bcrypt.hash('User123!', 10);
-      await userRepository.save(
-        userRepository.create({
-          email: 'admin@test.com',
-          password: adminPassword,
-          firstName: 'Admin',
-          lastName: 'User',
-          role: UserRole.ADMIN
-        })
-      );
-      await userRepository.save(
-        userRepository.create({
-          email: 'user@test.com',
-          password: userPassword,
-          firstName: 'Regular',
-          lastName: 'User',
-          role: UserRole.USER
-        })
-      );
+      await truncateTables(dataSource, ['cast', 'movies', 'actors', 'users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
       const movie = await movieRepository.save({
         title: 'Movie For Cast Remove',
         releaseDate: new Date('2023-01-01'),

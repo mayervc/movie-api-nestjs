@@ -3,28 +3,21 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
-import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
-import * as bcrypt from 'bcrypt';
+import { truncateTables } from './test-db.helper';
+import { createAdminAndUser } from './test-auth.helper';
 
 describe('Roles Protection (e2e)', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
-
-  // Usuarios de prueba
-  let adminUser: User;
-  let regularUser: User;
-  let adminToken: string;
   let userToken: string;
+  let adminToken: string;
 
   beforeAll(async () => {
-    // La aplicación de test se crea después de que el setup global complete
-    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
     const testModule = getTestModule();
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
 
-    // Verificar que las tablas están disponibles usando el repository
     let retries = 5;
     while (retries > 0) {
       try {
@@ -44,49 +37,13 @@ describe('Roles Protection (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Limpiar usuarios y películas antes de cada test
-    // Las tablas ya existen gracias al setup global
-    await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-    await userRepository.query('TRUNCATE TABLE "movies" CASCADE');
-
-    // Crear usuarios de prueba con diferentes roles
-    const adminPassword = await bcrypt.hash('Admin123!', 10);
-    const userPassword = await bcrypt.hash('User123!', 10);
-
-    adminUser = userRepository.create({
-      email: 'admin@test.com',
-      password: adminPassword,
-      firstName: 'Admin',
-      lastName: 'User',
-      role: UserRole.ADMIN
-    });
-    await userRepository.save(adminUser);
-
-    regularUser = userRepository.create({
-      email: 'user@test.com',
-      password: userPassword,
-      firstName: 'Regular',
-      lastName: 'User',
-      role: UserRole.USER
-    });
-    await userRepository.save(regularUser);
-
-    // Obtener tokens para ambos usuarios
-    const adminLoginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({
-        email: 'admin@test.com',
-        password: 'Admin123!'
-      });
-    adminToken = adminLoginResponse.body.access_token;
-
-    const userLoginResponse = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({
-        email: 'user@test.com',
-        password: 'User123!'
-      });
-    userToken = userLoginResponse.body.access_token;
+    await truncateTables(userRepository.manager.connection, [
+      'users',
+      'movies'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
   });
 
   describe('POST /movies - Admin only endpoint', () => {
