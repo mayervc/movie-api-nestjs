@@ -864,4 +864,117 @@ describe('MoviesController (e2e)', () => {
         .expect(400);
     });
   });
+
+  describe('DELETE /movies/:movieId/actors/:actorId', () => {
+    let adminToken: string;
+    let userToken: string;
+    let movieId: number;
+    let actorId: number;
+
+    beforeEach(async () => {
+      await actorRepository.query('TRUNCATE TABLE "cast" CASCADE');
+      await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
+      await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
+      await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+      const adminPassword = await bcrypt.hash('Admin123!', 10);
+      const userPassword = await bcrypt.hash('User123!', 10);
+      await userRepository.save(
+        userRepository.create({
+          email: 'admin@test.com',
+          password: adminPassword,
+          firstName: 'Admin',
+          lastName: 'User',
+          role: UserRole.ADMIN
+        })
+      );
+      await userRepository.save(
+        userRepository.create({
+          email: 'user@test.com',
+          password: userPassword,
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        })
+      );
+      const movie = await movieRepository.save({
+        title: 'Movie For Cast Remove',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+      movieId = movie.id;
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Test',
+          lastName: 'Actor',
+          popularity: 80
+        })
+      );
+      actorId = actor.id;
+      const adminLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'admin@test.com', password: 'Admin123!' });
+      adminToken = adminLogin.body.access_token;
+      const userLogin = await request(app.getHttpServer())
+        .post('/auth/login')
+        .send({ email: 'user@test.com', password: 'User123!' });
+      userToken = userLogin.body.access_token;
+    });
+
+    it('should remove actor from cast when called by ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}/actors/${actorId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(204);
+
+      const movieResponse = await request(app.getHttpServer())
+        .get(`/movies/${movieId}`)
+        .expect(200);
+      expect(movieResponse.body.cast).toHaveLength(0);
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}/actors/${actorId}`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}/actors/${actorId}`)
+        .expect(401);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete(`/movies/99999/actors/${actorId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(404);
+    });
+
+    it('should return 404 when actor not in cast', async () => {
+      await request(app.getHttpServer())
+        .delete(`/movies/${movieId}/actors/${actorId}`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .expect(404);
+    });
+  });
 });
