@@ -850,4 +850,108 @@ describe('MoviesController (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('POST /movies/:id/cast/delete', () => {
+    let adminToken: string;
+    let userToken: string;
+    let movieId: number;
+    let actor1Id: number;
+    let actor2Id: number;
+
+    beforeEach(async () => {
+      await truncateTables(dataSource, ['cast', 'movies', 'actors', 'users']);
+      const auth = await createAdminAndUser(userRepository, app);
+      adminToken = auth.adminToken;
+      userToken = auth.userToken;
+      const movie = await movieRepository.save({
+        title: 'Movie For Cast Delete',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90
+      });
+      movieId = movie.id;
+      const actor1 = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Actor',
+          lastName: 'One',
+          popularity: 80
+        })
+      );
+      const actor2 = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Actor',
+          lastName: 'Two',
+          popularity: 75
+        })
+      );
+      actor1Id = actor1.id;
+      actor2Id = actor2.id;
+    });
+
+    it('should remove multiple actors from cast when called by ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId: actor1Id, role: 'Lead', characters: ['A'] })
+        .expect(201);
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId: actor2Id, role: 'Support', characters: ['B'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast/delete`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorIds: [actor1Id, actor2Id] })
+        .expect(200);
+
+      const movieResponse = await request(app.getHttpServer())
+        .get(`/movies/${movieId}`)
+        .expect(200);
+      expect(movieResponse.body.cast).toHaveLength(0);
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId: actor1Id, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast/delete`)
+        .set('Authorization', 'Bearer ' + userToken)
+        .send({ actorIds: [actor1Id] })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorId: actor1Id, role: 'Lead', characters: ['A'] })
+        .expect(201);
+
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast/delete`)
+        .send({ actorIds: [actor1Id] })
+        .expect(401);
+    });
+
+    it('should return 404 when movie does not exist', async () => {
+      await request(app.getHttpServer())
+        .post('/movies/99999/cast/delete')
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorIds: [actor1Id] })
+        .expect(404);
+    });
+
+    it('should return 400 when actorIds is empty', async () => {
+      await request(app.getHttpServer())
+        .post(`/movies/${movieId}/cast/delete`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({ actorIds: [] })
+        .expect(400);
+    });
+  });
 });
