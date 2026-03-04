@@ -5,7 +5,8 @@ import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
-import * as bcrypt from 'bcrypt';
+import { truncateTables } from './test-db.helper';
+import { createAdminAndUserAndOther } from './test-auth.helper';
 
 describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors, PATCH /users/:id', () => {
   let app: INestApplication;
@@ -22,50 +23,12 @@ describe('Users (e2e) - GET /users/me, POST /users/admin, POST /users/vendors, P
   });
 
   beforeEach(async () => {
-    await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-
-    const userPassword = await bcrypt.hash('User123!', 10);
-    const adminPassword = await bcrypt.hash('Admin123!', 10);
-    const otherPassword = await bcrypt.hash('Other123!', 10);
-    const createdUser = await userRepository.save(
-      userRepository.create({
-        email: 'user@test.com',
-        password: userPassword,
-        firstName: 'Regular',
-        lastName: 'User',
-        role: UserRole.USER
-      })
-    );
-    userId = createdUser.id;
-    await userRepository.save(
-      userRepository.create({
-        email: 'admin@test.com',
-        password: adminPassword,
-        firstName: 'Admin',
-        lastName: 'User',
-        role: UserRole.ADMIN
-      })
-    );
-    const createdOther = await userRepository.save(
-      userRepository.create({
-        email: 'other@test.com',
-        password: otherPassword,
-        firstName: 'Other',
-        lastName: 'User',
-        role: UserRole.USER
-      })
-    );
-    otherUserId = createdOther.id;
-
-    const userLogin = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'user@test.com', password: 'User123!' });
-    userToken = userLogin.body.access_token;
-
-    const adminLogin = await request(app.getHttpServer())
-      .post('/auth/login')
-      .send({ email: 'admin@test.com', password: 'Admin123!' });
-    adminToken = adminLogin.body.access_token;
+    await truncateTables(userRepository.manager.connection, ['users']);
+    const auth = await createAdminAndUserAndOther(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    userId = auth.regularUser.id;
+    otherUserId = auth.otherUser.id;
   });
 
   describe('GET /users/me', () => {

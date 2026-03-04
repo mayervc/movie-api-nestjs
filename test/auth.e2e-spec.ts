@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { UserRole } from '../src/users/enums/user-role.enum';
 import { createTestApp, getTestModule } from './test-app.helper';
+import { truncateTables } from './test-db.helper';
 import * as bcrypt from 'bcrypt';
 
 describe('AuthController (e2e)', () => {
@@ -12,25 +13,13 @@ describe('AuthController (e2e)', () => {
   let userRepository: Repository<User>;
 
   beforeAll(async () => {
-    // La aplicación de test se crea después de que el setup global complete
-    // El setup global ya garantiza que las tablas estén disponibles
     app = await createTestApp();
-
-    // Obtener UserRepository para los tests
     const testModule = getTestModule();
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
   });
 
   beforeEach(async () => {
-    // Limpiar usuarios antes de cada test
-    if (userRepository) {
-      try {
-        await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-      } catch (error) {
-        // Ignorar errores si la tabla no existe o ya está vacía
-        // Ignorar errores si la tabla no existe o ya está vacía
-      }
-    }
+    await truncateTables(userRepository.manager.connection, ['users']);
   });
 
   describe('POST /auth/login', () => {
