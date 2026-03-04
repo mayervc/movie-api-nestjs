@@ -1,18 +1,20 @@
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Actor } from '../src/actors/entities/actor.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
-import { createAdminOnly } from './test-auth.helper';
+import { createAdminAndUser } from './test-auth.helper';
 
 describe('Actors (e2e)', () => {
   let app: INestApplication;
   let actorRepository: Repository<Actor>;
   let userRepository: Repository<User>;
   let adminToken: string;
+  let userToken: string;
+  let dataSource: DataSource;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -21,16 +23,14 @@ describe('Actors (e2e)', () => {
       getRepositoryToken(Actor)
     );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = userRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    await truncateTables(userRepository.manager.connection, [
-      'cast',
-      'actors',
-      'users'
-    ]);
-    const auth = await createAdminOnly(userRepository, app);
+    await truncateTables(dataSource, ['cast', 'movies', 'actors', 'users']);
+    const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
+    userToken = auth.userToken;
   });
 
   describe('GET /actors/:id', () => {
@@ -69,13 +69,38 @@ describe('Actors (e2e)', () => {
         .expect(201);
       expect(res.body.firstName).toBe('Jane');
       expect(res.body.lastName).toBe('Smith');
+      expect(res.body.id).toBeDefined();
     });
 
-    it('should return 401 without token', async () => {
+    it('should return 403 when called by non-ADMIN', async () => {
       await request(app.getHttpServer())
         .post('/actors')
-        .send({ firstName: 'Jane', lastName: 'Smith' })
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          popularity: 75
+        })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post('/actors')
+        .send({ firstName: 'Jane', lastName: 'Smith', popularity: 75 })
         .expect(401);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      await request(app.getHttpServer())
+        .post('/actors')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          popularity: -1
+        })
+        .expect(400);
     });
   });
 
