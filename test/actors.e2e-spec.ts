@@ -7,7 +7,7 @@ import { Movie } from '../src/movies/entities/movie.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
-import { createAdminOnly } from './test-auth.helper';
+import { createAdminAndUser } from './test-auth.helper';
 
 describe('Actors (e2e)', () => {
   let app: INestApplication;
@@ -15,6 +15,7 @@ describe('Actors (e2e)', () => {
   let movieRepository: Repository<Movie>;
   let userRepository: Repository<User>;
   let adminToken: string;
+  let userToken: string;
   let dataSource: DataSource;
 
   beforeAll(async () => {
@@ -32,8 +33,9 @@ describe('Actors (e2e)', () => {
 
   beforeEach(async () => {
     await truncateTables(dataSource, ['cast', 'movies', 'actors', 'users']);
-    const auth = await createAdminOnly(userRepository, app);
+    const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
+    userToken = auth.userToken;
   });
 
   describe('GET /actors/:id', () => {
@@ -119,13 +121,38 @@ describe('Actors (e2e)', () => {
         .expect(201);
       expect(res.body.firstName).toBe('Jane');
       expect(res.body.lastName).toBe('Smith');
+      expect(res.body.id).toBeDefined();
     });
 
-    it('should return 401 without token', async () => {
+    it('should return 403 when called by non-ADMIN', async () => {
       await request(app.getHttpServer())
         .post('/actors')
-        .send({ firstName: 'Jane', lastName: 'Smith' })
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          popularity: 75
+        })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      await request(app.getHttpServer())
+        .post('/actors')
+        .send({ firstName: 'Jane', lastName: 'Smith', popularity: 75 })
         .expect(401);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      await request(app.getHttpServer())
+        .post('/actors')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          firstName: 'Jane',
+          lastName: 'Smith',
+          popularity: -1
+        })
+        .expect(400);
     });
   });
 
