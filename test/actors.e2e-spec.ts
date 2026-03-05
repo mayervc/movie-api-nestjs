@@ -193,5 +193,41 @@ describe('Actors (e2e)', () => {
       const found = await actorRepository.findOne({ where: { id: actor.id } });
       expect(found).toBeNull();
     });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'ToDelete',
+          lastName: 'Actor',
+          popularity: 10
+        })
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/actors/${actor.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'ToDelete',
+          lastName: 'Actor',
+          popularity: 10
+        })
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/actors/${actor.id}`)
+        .expect(401);
+    });
+
+    it('should return 404 when actor does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete('/actors/99999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    });
   });
 });
