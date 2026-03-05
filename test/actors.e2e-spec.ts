@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Actor } from '../src/actors/entities/actor.entity';
+import { Movie } from '../src/movies/entities/movie.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
@@ -11,6 +12,7 @@ import { createAdminAndUser } from './test-auth.helper';
 describe('Actors (e2e)', () => {
   let app: INestApplication;
   let actorRepository: Repository<Actor>;
+  let movieRepository: Repository<Movie>;
   let userRepository: Repository<User>;
   let adminToken: string;
   let userToken: string;
@@ -21,6 +23,9 @@ describe('Actors (e2e)', () => {
     const testModule = getTestModule();
     actorRepository = testModule.get<Repository<Actor>>(
       getRepositoryToken(Actor)
+    );
+    movieRepository = testModule.get<Repository<Movie>>(
+      getRepositoryToken(Movie)
     );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
     dataSource = userRepository.manager.connection;
@@ -52,6 +57,53 @@ describe('Actors (e2e)', () => {
 
     it('should return 404 for non-existent actor', async () => {
       await request(app.getHttpServer()).get('/actors/99999').expect(404);
+    });
+
+    it('should be a public endpoint (no auth required)', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Public',
+          lastName: 'Actor',
+          popularity: 50
+        })
+      );
+
+      const res = await request(app.getHttpServer())
+        .get(`/actors/${actor.id}`)
+        .expect(200);
+      expect(res.body.firstName).toBe('Public');
+    });
+
+    it('should return actor with cast when actor has cast', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Cast',
+          lastName: 'Actor',
+          popularity: 90
+        })
+      );
+      const movie = await movieRepository.save({
+        title: 'Movie With Cast',
+        releaseDate: new Date('2023-01-01'),
+        duration: 100
+      });
+      await request(app.getHttpServer())
+        .post(`/movies/${movie.id}/cast`)
+        .set('Authorization', 'Bearer ' + adminToken)
+        .send({
+          actorId: actor.id,
+          role: 'Lead',
+          characters: ['Main Character']
+        })
+        .expect(201);
+
+      const res = await request(app.getHttpServer())
+        .get(`/actors/${actor.id}`)
+        .expect(200);
+      expect(res.body.firstName).toBe('Cast');
+      expect(res.body).toHaveProperty('cast');
+      expect(Array.isArray(res.body.cast)).toBe(true);
+      expect(res.body.cast.length).toBeGreaterThanOrEqual(1);
     });
   });
 
