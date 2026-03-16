@@ -9,6 +9,7 @@ import { Movie } from './entities/movie.entity';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
 import { SearchMovieDto } from './dto/search-movie.dto';
+import * as PDFDocument from 'pdfkit';
 
 @Injectable()
 export class MoviesService {
@@ -126,5 +127,110 @@ export class MoviesService {
       limit,
       totalPages: Math.ceil(total / limit)
     };
+  }
+
+  async generateTrendingPdf(): Promise<Buffer> {
+    const { data: movies } = await this.findTrending(1, 100);
+
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({ margin: 50 });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // Header
+      doc
+        .fontSize(24)
+        .font('Helvetica-Bold')
+        .text('Trending Movies', { align: 'center' });
+      doc.moveDown(0.5);
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#666666')
+        .text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
+      doc.fillColor('#000000');
+      doc.moveDown(1);
+
+      // Divider
+      doc
+        .moveTo(50, doc.y)
+        .lineTo(545, doc.y)
+        .strokeColor('#cccccc')
+        .lineWidth(1)
+        .stroke();
+      doc.moveDown(1);
+
+      if (movies.length === 0) {
+        doc.fontSize(12).text('No trending movies found.', { align: 'center' });
+      } else {
+        movies.forEach((movie, index) => {
+          // Movie number + title
+          doc
+            .fontSize(13)
+            .font('Helvetica-Bold')
+            .fillColor('#1a1a1a')
+            .text(`${index + 1}. ${movie.title}`);
+
+          // Genres
+          if (movie.genres?.length) {
+            doc
+              .fontSize(9)
+              .font('Helvetica')
+              .fillColor('#555555')
+              .text(movie.genres.join(' · '));
+          }
+
+          // Meta row: rating, duration, release date
+          const meta: string[] = [];
+          if (movie.rating) meta.push(`Rating: ${movie.rating}/10`);
+          if (movie.duration) meta.push(`Duration: ${movie.duration} min`);
+          if (movie.releaseDate) {
+            const date = new Date(movie.releaseDate);
+            meta.push(`Released: ${date.getFullYear()}`);
+          }
+          if (meta.length) {
+            doc
+              .fontSize(9)
+              .font('Helvetica')
+              .fillColor('#333333')
+              .text(meta.join('   |   '));
+          }
+
+          // Description
+          if (movie.description) {
+            doc
+              .moveDown(0.3)
+              .fontSize(9)
+              .font('Helvetica')
+              .fillColor('#444444')
+              .text(movie.description, { width: 495 });
+          }
+
+          doc.fillColor('#000000');
+          doc.moveDown(0.8);
+
+          // Separator between movies (skip last)
+          if (index < movies.length - 1) {
+            doc
+              .moveTo(50, doc.y)
+              .lineTo(545, doc.y)
+              .strokeColor('#eeeeee')
+              .lineWidth(0.5)
+              .stroke();
+            doc.moveDown(0.8);
+          }
+
+          // Page break safety
+          if (doc.y > 700 && index < movies.length - 1) {
+            doc.addPage();
+          }
+        });
+      }
+
+      doc.end();
+    });
   }
 }

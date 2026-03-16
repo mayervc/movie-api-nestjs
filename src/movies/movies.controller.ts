@@ -10,13 +10,16 @@ import {
   HttpStatus,
   ParseIntPipe,
   Query,
-  DefaultValuePipe
+  DefaultValuePipe,
+  Res
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth
+  ApiBearerAuth,
+  ApiProduces
 } from '@nestjs/swagger';
 import { MoviesService } from './movies.service';
 import { CreateMovieDto } from './dto/create-movie.dto';
@@ -50,6 +53,21 @@ export class MoviesController {
   @ApiResponse({ status: 200, description: 'List of movies' })
   findAll() {
     return this.moviesService.findAll();
+  }
+
+  @Get('trending/pdf')
+  @Public()
+  @ApiOperation({ summary: 'Download trending movies as PDF' })
+  @ApiProduces('application/pdf')
+  @ApiResponse({ status: 200, description: 'PDF file with trending movies', content: { 'application/pdf': {} } })
+  async getTrendingPdf(@Res() res: Response) {
+    const buffer = await this.moviesService.generateTrendingPdf();
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': 'attachment; filename="trending-movies.pdf"',
+      'Content-Length': buffer.length
+    });
+    res.end(buffer);
   }
 
   @Get('trending')

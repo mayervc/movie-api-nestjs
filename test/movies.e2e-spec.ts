@@ -954,4 +954,101 @@ describe('MoviesController (e2e)', () => {
         .expect(400);
     });
   });
+
+  describe('GET /movies/trending/pdf', () => {
+    it('should return 200 with Content-Type application/pdf', async () => {
+      await movieRepository.save([
+        {
+          title: 'Trending PDF Movie 1',
+          releaseDate: new Date('2023-01-01'),
+          duration: 90,
+          trending: true
+        },
+        {
+          title: 'Trending PDF Movie 2',
+          releaseDate: new Date('2023-01-02'),
+          duration: 100,
+          trending: true
+        }
+      ]);
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/trending/pdf')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('application/pdf');
+    });
+
+    it('should include Content-Disposition attachment header with filename', async () => {
+      const response = await request(app.getHttpServer())
+        .get('/movies/trending/pdf')
+        .expect(200);
+
+      expect(response.headers['content-disposition']).toContain('attachment');
+      expect(response.headers['content-disposition']).toContain(
+        'trending-movies.pdf'
+      );
+    });
+
+    it('should return a non-empty PDF buffer', async () => {
+      await movieRepository.save({
+        title: 'PDF Trending Movie',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90,
+        trending: true
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/trending/pdf')
+        .buffer(true)
+        .parse((res, callback) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => callback(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+
+      expect(response.body.length).toBeGreaterThan(0);
+      // Verify PDF magic bytes (%PDF)
+      expect(response.body.slice(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('should return a valid PDF even when there are no trending movies', async () => {
+      await movieRepository.save({
+        title: 'Not Trending',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90,
+        trending: false
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/movies/trending/pdf')
+        .buffer(true)
+        .parse((res, callback) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('end', () => callback(null, Buffer.concat(chunks)));
+        })
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('application/pdf');
+      expect(response.body.slice(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('should be a public endpoint (no authentication required)', async () => {
+      await movieRepository.save({
+        title: 'Public PDF Movie',
+        releaseDate: new Date('2023-01-01'),
+        duration: 90,
+        trending: true
+      });
+
+      // No Authorization header
+      const response = await request(app.getHttpServer())
+        .get('/movies/trending/pdf')
+        .expect(200);
+
+      expect(response.headers['content-type']).toContain('application/pdf');
+    });
+  });
 });
