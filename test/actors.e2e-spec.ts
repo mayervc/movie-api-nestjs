@@ -173,6 +173,61 @@ describe('Actors (e2e)', () => {
         .expect(200);
       expect(res.body.firstName).toBe('Updated');
     });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Old',
+          lastName: 'Name',
+          popularity: 50
+        })
+      );
+
+      await request(app.getHttpServer())
+        .patch(`/actors/${actor.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ firstName: 'Hacked' })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Old',
+          lastName: 'Name',
+          popularity: 50
+        })
+      );
+
+      await request(app.getHttpServer())
+        .patch(`/actors/${actor.id}`)
+        .send({ firstName: 'Updated' })
+        .expect(401);
+    });
+
+    it('should return 404 when actor does not exist', async () => {
+      await request(app.getHttpServer())
+        .patch('/actors/99999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ firstName: 'Updated' })
+        .expect(404);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      const actor = await actorRepository.save(
+        actorRepository.create({
+          firstName: 'Old',
+          lastName: 'Name',
+          popularity: 50
+        })
+      );
+
+      await request(app.getHttpServer())
+        .patch(`/actors/${actor.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ popularity: -1 })
+        .expect(400);
+    });
   });
 
   describe('DELETE /actors/:id', () => {
