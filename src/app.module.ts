@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { entities } from './config/entities';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
@@ -32,7 +33,8 @@ import { entities } from './config/entities';
     }),
     MoviesModule,
     UsersModule,
-    AuthModule
+    AuthModule,
+    RoomsModule
   ],
   providers: [
     {

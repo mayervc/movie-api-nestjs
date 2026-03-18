@@ -9,7 +9,8 @@ export const TRUNCATEABLE_TABLES = [
   'cast',
   'movies',
   'actors',
-  'users'
+  'users',
+  'rooms'
 ] as const;
 
 export type TruncateableTable = (typeof TRUNCATEABLE_TABLES)[number];
