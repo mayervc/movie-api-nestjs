@@ -9,6 +9,7 @@ import { UsersModule } from '../src/users/users.module';
 import { AuthModule } from '../src/auth/auth.module';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../src/auth/guards/roles.guard';
+import { CinemasModule } from '../src/cinemas/cinemas.module';
 import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**
@@ -59,7 +60,8 @@ export async function createTestApp(): Promise<INestApplication> {
       // Importar solo los módulos necesarios para los tests
       MoviesModule,
       UsersModule,
-      AuthModule
+      AuthModule,
+      CinemasModule
     ],
     providers: [
       // Configurar los guards globales igual que en AppModule
