@@ -59,6 +59,29 @@ describe('CinemasController (e2e)', () => {
       expect(response.body.data).toHaveLength(0);
       expect(response.body.total).toBe(0);
     });
+
+    it('should return cinemas with new columns (address, city, country, phone, countryCode)', async () => {
+      await cinemaRepository.save({
+        name: 'Cinema Full',
+        address: 'Calle 1',
+        city: 'Cochabamba',
+        country: 'Bolivia',
+        phoneNumber: '123456',
+        countryCode: '+591'
+      });
+
+      const response = await request(app.getHttpServer())
+        .get('/cinemas?page=1&limit=10')
+        .expect(200);
+
+      expect(response.body.data).toHaveLength(1);
+      expect(response.body.data[0].name).toBe('Cinema Full');
+      expect(response.body.data[0].address).toBe('Calle 1');
+      expect(response.body.data[0].city).toBe('Cochabamba');
+      expect(response.body.data[0].country).toBe('Bolivia');
+      expect(response.body.data[0].phoneNumber).toBe('123456');
+      expect(response.body.data[0].countryCode).toBe('+591');
+    });
   });
 
   describe('POST /cinemas', () => {
@@ -70,6 +93,29 @@ describe('CinemasController (e2e)', () => {
         .expect(201);
 
       expect(response.body.name).toBe('Cinema Admin');
+    });
+
+    it('should create cinema with optional columns when ADMIN', async () => {
+      const payload = {
+        name: 'Cinema With Details',
+        address: 'Av. Principal 123',
+        city: 'La Paz',
+        country: 'Bolivia',
+        phoneNumber: '+591 2 1234567',
+        countryCode: '+591'
+      };
+      const response = await request(app.getHttpServer())
+        .post('/cinemas')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(payload)
+        .expect(201);
+
+      expect(response.body.name).toBe(payload.name);
+      expect(response.body.address).toBe(payload.address);
+      expect(response.body.city).toBe(payload.city);
+      expect(response.body.country).toBe(payload.country);
+      expect(response.body.phoneNumber).toBe(payload.phoneNumber);
+      expect(response.body.countryCode).toBe(payload.countryCode);
     });
 
     it('should return 403 when called by non-ADMIN', async () => {

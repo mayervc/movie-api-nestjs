@@ -34,7 +34,12 @@ export class CinemasService {
   async create(createCinemaDto: CreateCinemaDto): Promise<Cinema> {
     try {
       const cinema = this.cinemasRepository.create({
-        name: createCinemaDto.name
+        name: createCinemaDto.name,
+        address: createCinemaDto.address ?? null,
+        city: createCinemaDto.city ?? null,
+        country: createCinemaDto.country ?? null,
+        phoneNumber: createCinemaDto.phoneNumber ?? null,
+        countryCode: createCinemaDto.countryCode ?? null
       });
       return await this.cinemasRepository.save(cinema);
     } catch (error) {
