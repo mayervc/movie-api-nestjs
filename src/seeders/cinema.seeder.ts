@@ -1,9 +1,6 @@
 import { DataSource } from 'typeorm';
-import { Cinema } from '../cinemas/entities/cinema.entity';
 
 export async function seedCinemas(dataSource: DataSource): Promise<void> {
-  const cinemaRepository = dataSource.getRepository(Cinema);
-
   const cinemas = [
     { name: 'Cinema Aurora' },
     { name: 'Cinema Central' },
@@ -12,15 +9,20 @@ export async function seedCinemas(dataSource: DataSource): Promise<void> {
     { name: 'Cinema Grand' }
   ];
 
-  for (const c of cinemas) {
-    const existing = await cinemaRepository.findOne({
-      where: { name: c.name }
-    });
+  // Insert using raw SQL to avoid relying on the Cinema entity being present yet
+  // (this seed runs as part of the cinema migrations/seeders phase).
+  const valuesSql = cinemas
+    .map((c) => `('${c.name.replace(/'/g, "''")}')`)
+    .join(', ');
 
-    if (!existing) {
-      await cinemaRepository.save(cinemaRepository.create(c));
-      console.log(`  Cinema created: ${c.name}`);
-    }
+  await dataSource.query(`
+    INSERT INTO "cinemas" ("name")
+    VALUES ${valuesSql}
+    ON CONFLICT ("name") DO NOTHING
+  `);
+
+  for (const c of cinemas) {
+    console.log(`  Cinema ensured: ${c.name}`);
   }
 }
 
