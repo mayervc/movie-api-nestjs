@@ -2,6 +2,7 @@ import { DataSource } from 'typeorm';
 import { config } from 'dotenv';
 import { seedMovies } from './movie.seeder';
 import { seedUsers } from './user.seeder';
+import { seedCinemas } from './cinema.seeder';
 import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
@@ -38,11 +39,13 @@ async function runSeeders() {
     await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
     await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
     await userRepository.query('TRUNCATE TABLE "users" CASCADE');
+    await dataSource.query('TRUNCATE TABLE "cinemas" CASCADE');
 
     // Ejecutar seeders
     console.log('Inserting users...');
     await seedUsers(dataSource);
     await seedMovies(dataSource);
+    await seedCinemas(dataSource);
 
     await dataSource.destroy();
     console.log('Seeders completed successfully');
