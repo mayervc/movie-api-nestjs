@@ -7,6 +7,7 @@ import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
 import { User } from '../users/entities/user.entity';
+import { Cinema } from '../cinemas/entities/cinema.entity';
 
 config();
 
@@ -18,7 +19,7 @@ async function runSeeders() {
     username: process.env.DB_USERNAME || 'stremio',
     password: process.env.DB_PASSWORD || 'stremio_pass',
     database: process.env.DB_DATABASE || 'stremio_db_dev',
-    entities: [Movie, Actor, Cast, User],
+    entities: [Movie, Actor, Cast, User, Cinema],
     synchronize: false,
     logging: true
   });
@@ -32,6 +33,7 @@ async function runSeeders() {
     const movieRepository = dataSource.getRepository(Movie);
     const actorRepository = dataSource.getRepository(Actor);
     const userRepository = dataSource.getRepository(User);
+    const cinemaRepository = dataSource.getRepository(Cinema);
 
     console.log('Cleaning existing data...');
     // Limpiar en orden: primero cast (tabla con foreign keys), luego movies, actors y users
