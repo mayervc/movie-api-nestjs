@@ -48,8 +48,6 @@ export class CinemasService {
    * Empty / whitespace `q` returns all cinemas (same shape as findAll).
    */
   async search(q: string, page = 1, limit = 10) {
-    // Defensive parsing: even though controller uses ParseIntPipe,
-    // tests / runtime can still pass unexpected values (e.g. `page=abc`).
     const pageNum = Number(page);
     const limitNum = Number(limit);
 
