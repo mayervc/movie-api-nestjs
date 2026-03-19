@@ -2,6 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
+import { CreateCinemaDto } from './dto/create-cinema.dto';
 
 @Injectable()
 export class CinemasService {
@@ -28,6 +29,26 @@ export class CinemasService {
       limit,
       totalPages: Math.ceil(total / limit)
     };
+  }
+
+  async create(createCinemaDto: CreateCinemaDto): Promise<Cinema> {
+    try {
+      const cinema = this.cinemasRepository.create({
+        name: createCinemaDto.name,
+        address: createCinemaDto.address ?? null,
+        city: createCinemaDto.city ?? null,
+        country: createCinemaDto.country ?? null,
+        phoneNumber: createCinemaDto.phoneNumber ?? null,
+        countryCode: createCinemaDto.countryCode ?? null
+      });
+      return await this.cinemasRepository.save(cinema);
+    } catch (error) {
+      // PostgreSQL unique constraint violation
+      if (error?.code === '23505') {
+        throw new BadRequestException('Cinema name must be unique');
+      }
+      throw error;
+    }
   }
 }
 

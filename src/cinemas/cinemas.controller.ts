@@ -1,12 +1,38 @@
-import { Controller, Get, Query, DefaultValuePipe, ParseIntPipe } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Controller,
+  Get,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { CinemasService } from './cinemas.service';
+import { CreateCinemaDto } from './dto/create-cinema.dto';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @ApiTags('cinemas')
 @Controller('cinemas')
 export class CinemasController {
   constructor(private readonly cinemasService: CinemasService) {}
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a cinema' })
+  @ApiResponse({ status: 201, description: 'Cinema created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  create(@Body() createCinemaDto: CreateCinemaDto) {
+    return this.cinemasService.create(createCinemaDto);
+  }
 
   @Get()
   @Public()
