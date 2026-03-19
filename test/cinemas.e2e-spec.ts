@@ -84,6 +84,42 @@ describe('CinemasController (e2e)', () => {
     });
   });
 
+  describe('GET /cinemas/:id', () => {
+    it('should return cinema by id (public)', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Single Cinema',
+        address: 'Main St 1',
+        city: 'La Paz',
+        country: 'Bolivia',
+        phoneNumber: '70000000',
+        countryCode: '+591'
+      });
+
+      const res = await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}`)
+        .expect(200);
+
+      expect(res.body.id).toBe(cinema.id);
+      expect(res.body.name).toBe('Single Cinema');
+      expect(res.body.address).toBe('Main St 1');
+      expect(res.body.city).toBe('La Paz');
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer()).get('/cinemas/99999').expect(404);
+    });
+
+    it('should be public (no auth required)', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Public Cinema' });
+
+      const res = await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}`)
+        .expect(200);
+
+      expect(res.body.name).toBe('Public Cinema');
+    });
+  });
+
   describe('POST /cinemas', () => {
     it('should create cinema when ADMIN', async () => {
       const response = await request(app.getHttpServer())
