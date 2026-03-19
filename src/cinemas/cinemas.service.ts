@@ -1,12 +1,13 @@
 import {
-  Injectable,
   BadRequestException,
+  Injectable,
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
+import { UpdateCinemaDto } from './dto/update-cinema.dto';
 
 @Injectable()
 export class CinemasService {
@@ -109,6 +110,39 @@ export class CinemasService {
       return await this.cinemasRepository.save(cinema);
     } catch (error) {
       // PostgreSQL unique constraint violation
+      if (error?.code === '23505') {
+        throw new BadRequestException('Cinema name must be unique');
+      }
+      throw error;
+    }
+  }
+
+  async update(id: number, updateCinemaDto: UpdateCinemaDto): Promise<Cinema> {
+    if (Object.keys(updateCinemaDto).length === 0) {
+      throw new BadRequestException('Request body cannot be empty');
+    }
+
+    const cinema = await this.findOne(id);
+
+    // Merge only provided fields (undefined means "do not change")
+    if (updateCinemaDto.name !== undefined) cinema.name = updateCinemaDto.name;
+    if (updateCinemaDto.address !== undefined) {
+      cinema.address = updateCinemaDto.address;
+    }
+    if (updateCinemaDto.city !== undefined) cinema.city = updateCinemaDto.city;
+    if (updateCinemaDto.country !== undefined) {
+      cinema.country = updateCinemaDto.country;
+    }
+    if (updateCinemaDto.phoneNumber !== undefined) {
+      cinema.phoneNumber = updateCinemaDto.phoneNumber;
+    }
+    if (updateCinemaDto.countryCode !== undefined) {
+      cinema.countryCode = updateCinemaDto.countryCode;
+    }
+
+    try {
+      return await this.cinemasRepository.save(cinema);
+    } catch (error) {
       if (error?.code === '23505') {
         throw new BadRequestException('Cinema name must be unique');
       }

@@ -6,6 +6,8 @@ import {
   DefaultValuePipe,
   ParseIntPipe,
   Post,
+  Patch,
+  Param,
   Body,
   HttpCode,
   HttpStatus,
@@ -20,6 +22,7 @@ import {
 import { Public } from '../auth/decorators/public.decorator';
 import { CinemasService } from './cinemas.service';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
+import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 
@@ -83,6 +86,22 @@ export class CinemasController {
   @ApiResponse({ status: 404, description: 'Cinema not found' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.cinemasService.findOne(id);
+  }
+
+  @Patch(':id')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update a cinema' })
+  @ApiResponse({ status: 200, description: 'Cinema updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 404, description: 'Cinema not found' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateCinemaDto: UpdateCinemaDto
+  ) {
+    return this.cinemasService.update(id, updateCinemaDto);
   }
 }
 
