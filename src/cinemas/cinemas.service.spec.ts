@@ -4,8 +4,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { CinemasService } from './cinemas.service';
 import { Cinema } from './entities/cinema.entity';
+import { UpdateCinemaDto } from './dto/update-cinema.dto';
 
-describe('CinemasService', () => {
+describe('CinemasService (unit)', () => {
   let service: CinemasService;
 
   const mockQueryBuilder = {
@@ -16,14 +17,30 @@ describe('CinemasService', () => {
     getManyAndCount: jest.fn()
   };
 
-  const mockRepository = {
+  const cinema1: Cinema = {
+    id: 1,
+    name: 'Cinema One',
+    address: 'Old address',
+    city: null,
+    country: null,
+    phoneNumber: null,
+    countryCode: null,
+    createdAt: new Date(),
+    updatedAt: new Date()
+  };
+
+  const mockRepository: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    createQueryBuilder: jest.Mock;
+  } = {
     findOne: jest.fn(),
+    save: jest.fn(),
     createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
   };
 
   beforeEach(async () => {
     jest.clearAllMocks();
-  
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -40,21 +57,9 @@ describe('CinemasService', () => {
 
   describe('findOne', () => {
     it('should return cinema when it exists', async () => {
-      const cinema: Cinema = {
-        id: 1,
-        name: 'Cinema One',
-        address: null,
-        city: null,
-        country: null,
-        phoneNumber: null,
-        countryCode: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
+      mockRepository.findOne.mockResolvedValue(cinema1);
 
-      mockRepository.findOne.mockResolvedValue(cinema);
-
-      await expect(service.findOne(1)).resolves.toEqual(cinema);
+      await expect(service.findOne(1)).resolves.toEqual(cinema1);
       expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
     });
 
@@ -66,10 +71,6 @@ describe('CinemasService', () => {
       );
       expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: 123 } });
     });
-  });
-
-  it('should be defined', () => {
-    expect(service).toBeDefined();
   });
 
   describe('search', () => {
@@ -119,4 +120,48 @@ describe('CinemasService', () => {
       ).rejects.toThrow(BadRequestException);
     });
   });
+
+  describe('update', () => {
+    it('should throw BadRequestException when body is empty', async () => {
+      const dto = {} as UpdateCinemaDto;
+      await expect(service.update(1, dto)).rejects.toBeInstanceOf(
+        BadRequestException
+      );
+    });
+
+    it('should update only provided fields', async () => {
+      const dto: UpdateCinemaDto = { address: 'New address' };
+
+      mockRepository.findOne.mockResolvedValue({ ...cinema1 });
+      mockRepository.save.mockResolvedValue({ ...cinema1, address: 'New address' });
+
+      const res = await service.update(1, dto);
+
+      expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(mockRepository.save).toHaveBeenCalledTimes(1);
+      expect(res.address).toBe('New address');
+    });
+
+    it('should throw BadRequestException on unique name constraint violation', async () => {
+      const dto: UpdateCinemaDto = { name: 'Duplicate name' };
+
+      mockRepository.findOne.mockResolvedValue({ ...cinema1 });
+      mockRepository.save.mockRejectedValue({ code: '23505' });
+
+      await expect(service.update(1, dto)).rejects.toThrow(
+        'Cinema name must be unique'
+      );
+    });
+
+    it('should throw NotFoundException when cinema does not exist', async () => {
+      const dto: UpdateCinemaDto = { address: 'New address' };
+
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.update(999, dto)).rejects.toBeInstanceOf(
+        NotFoundException
+      );
+    });
+  });
 });
+
