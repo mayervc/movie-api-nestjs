@@ -125,20 +125,10 @@ export class CinemasService {
     const cinema = await this.findOne(id);
 
     // Merge only provided fields (undefined means "do not change")
-    if (updateCinemaDto.name !== undefined) cinema.name = updateCinemaDto.name;
-    if (updateCinemaDto.address !== undefined) {
-      cinema.address = updateCinemaDto.address;
-    }
-    if (updateCinemaDto.city !== undefined) cinema.city = updateCinemaDto.city;
-    if (updateCinemaDto.country !== undefined) {
-      cinema.country = updateCinemaDto.country;
-    }
-    if (updateCinemaDto.phoneNumber !== undefined) {
-      cinema.phoneNumber = updateCinemaDto.phoneNumber;
-    }
-    if (updateCinemaDto.countryCode !== undefined) {
-      cinema.countryCode = updateCinemaDto.countryCode;
-    }
+    const updates = Object.fromEntries(
+      Object.entries(updateCinemaDto).filter(([, v]) => v !== undefined)
+    );
+    Object.assign(cinema, updates);
 
     try {
       return await this.cinemasRepository.save(cinema);
