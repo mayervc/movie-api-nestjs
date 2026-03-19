@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Param,
   Query,
   DefaultValuePipe,
   ParseIntPipe,
@@ -43,6 +44,15 @@ export class CinemasController {
     @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10
   ) {
     return this.cinemasService.findAll(page, limit);
+  }
+
+  @Get(':id')
+  @Public()
+  @ApiOperation({ summary: 'Get cinema by ID' })
+  @ApiResponse({ status: 200, description: 'Cinema found' })
+  @ApiResponse({ status: 404, description: 'Cinema not found' })
+  findOne(@Param('id', ParseIntPipe) id: number) {
+    return this.cinemasService.findOne(id);
   }
 }
 

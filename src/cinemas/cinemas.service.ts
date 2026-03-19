@@ -1,4 +1,8 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
@@ -10,6 +14,14 @@ export class CinemasService {
     @InjectRepository(Cinema)
     private readonly cinemasRepository: Repository<Cinema>
   ) {}
+
+  async findOne(id: number): Promise<Cinema> {
+    const cinema = await this.cinemasRepository.findOne({ where: { id } });
+    if (!cinema) {
+      throw new NotFoundException(`Cinema with ID ${id} not found`);
+    }
+    return cinema;
+  }
 
   async findAll(page = 1, limit = 10) {
     if (page < 1 || limit < 1) {
