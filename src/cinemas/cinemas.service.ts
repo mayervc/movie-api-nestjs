@@ -43,6 +43,51 @@ export class CinemasService {
     };
   }
 
+  /**
+   * Search cinemas by optional text across name, address, city, country, phone, country code.
+   * Empty / whitespace `q` returns all cinemas (same shape as findAll).
+   */
+  async search(q: string, page = 1, limit = 10) {
+    if (page < 1 || limit < 1) {
+      throw new BadRequestException('Page and limit must be >= 1');
+    }
+
+    const skip = (page - 1) * limit;
+    const trimmed = (q ?? '').trim();
+
+    const queryBuilder =
+      this.cinemasRepository.createQueryBuilder('cinema');
+
+    if (trimmed) {
+      queryBuilder.where(
+        `(
+          cinema.name ILIKE :q OR
+          cinema.address ILIKE :q OR
+          cinema.city ILIKE :q OR
+          cinema.country ILIKE :q OR
+          cinema.phoneNumber ILIKE :q OR
+          cinema.countryCode ILIKE :q
+        )`,
+        { q: `%${trimmed}%` }
+      );
+    }
+
+    queryBuilder
+      .orderBy('cinema.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [data, total] = await queryBuilder.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    };
+  }
+
   async create(createCinemaDto: CreateCinemaDto): Promise<Cinema> {
     try {
       const cinema = this.cinemasRepository.create({

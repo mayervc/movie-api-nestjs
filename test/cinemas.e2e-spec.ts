@@ -120,6 +120,74 @@ describe('CinemasController (e2e)', () => {
     });
   });
 
+  describe('GET /cinemas/search', () => {
+    it('should return 200 with matching cinemas when q matches name', async () => {
+      await cinemaRepository.save([
+        { name: 'Cinema Plaza Norte' },
+        { name: 'Cinema Central' }
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .get('/cinemas/search')
+        .query({ q: 'Plaza', page: 1, limit: 10 })
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe('Cinema Plaza Norte');
+      expect(res.body.total).toBe(1);
+      expect(res.body.page).toBe(1);
+      expect(res.body.limit).toBe(10);
+      expect(res.body.totalPages).toBe(1);
+    });
+
+    it('should match city and country (case-insensitive)', async () => {
+      await cinemaRepository.save([
+        { name: 'A', city: 'La Paz', country: 'Bolivia' },
+        { name: 'B', city: 'Santa Cruz', country: 'Bolivia' }
+      ]);
+
+      const res = await request(app.getHttpServer())
+        .get('/cinemas/search')
+        .query({ q: 'la paz', page: 1, limit: 10 })
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(1);
+      expect(res.body.data[0].name).toBe('A');
+    });
+
+    it('should return all cinemas paginated when q is empty', async () => {
+      await cinemaRepository.save([{ name: 'One' }, { name: 'Two' }]);
+
+      const res = await request(app.getHttpServer())
+        .get('/cinemas/search?page=1&limit=10')
+        .expect(200);
+
+      expect(res.body.data).toHaveLength(2);
+      expect(res.body.total).toBe(2);
+    });
+
+    it('should return 400 when page is less than 1', async () => {
+      await request(app.getHttpServer())
+        .get('/cinemas/search')
+        .query({ q: 'x', page: 0, limit: 10 })
+        .expect(400);
+    });
+
+    it('should return 400 when limit is less than 1', async () => {
+      await request(app.getHttpServer())
+        .get('/cinemas/search')
+        .query({ q: 'x', page: 1, limit: 0 })
+        .expect(400);
+    });
+
+    it('should return 400 when page is not a number', async () => {
+      await request(app.getHttpServer())
+        .get('/cinemas/search')
+        .query({ q: 'x', page: 'abc', limit: 10 })
+        .expect(400);
+    });
+  });
+
   describe('POST /cinemas', () => {
     it('should create cinema when ADMIN', async () => {
       const response = await request(app.getHttpServer())
