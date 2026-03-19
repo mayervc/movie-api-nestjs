@@ -48,11 +48,21 @@ export class CinemasService {
    * Empty / whitespace `q` returns all cinemas (same shape as findAll).
    */
   async search(q: string, page = 1, limit = 10) {
-    if (page < 1 || limit < 1) {
+    // Defensive parsing: even though controller uses ParseIntPipe,
+    // tests / runtime can still pass unexpected values (e.g. `page=abc`).
+    const pageNum = Number(page);
+    const limitNum = Number(limit);
+
+    if (
+      !Number.isInteger(pageNum) ||
+      !Number.isInteger(limitNum) ||
+      pageNum < 1 ||
+      limitNum < 1
+    ) {
       throw new BadRequestException('Page and limit must be >= 1');
     }
 
-    const skip = (page - 1) * limit;
+    const skip = (pageNum - 1) * limitNum;
     const trimmed = (q ?? '').trim();
 
     const queryBuilder =
@@ -75,16 +85,16 @@ export class CinemasService {
     queryBuilder
       .orderBy('cinema.createdAt', 'DESC')
       .skip(skip)
-      .take(limit);
+      .take(limitNum);
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
     return {
       data,
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+      page: pageNum,
+      limit: limitNum,
+      totalPages: Math.ceil(total / limitNum)
     };
   }
 
