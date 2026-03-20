@@ -21,6 +21,7 @@ import {
 import { Public } from '../auth/decorators/public.decorator';
 import { CinemasService } from './cinemas.service';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
+import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -101,6 +102,26 @@ export class CinemasController {
     @Body() updateCinemaDto: UpdateCinemaDto
   ) {
     return this.cinemasService.update(id, updateCinemaDto);
+  }
+
+  @Post(':id/users')
+  @HttpCode(HttpStatus.CREATED)
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Link a user to a cinema' })
+  @ApiResponse({ status: 201, description: 'User linked to cinema' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 404, description: 'Cinema or user not found' })
+  linkUserToCinema(
+    @Param('id', ParseIntPipe) cinemaId: number,
+    @Body() linkCinemaUserDto: LinkCinemaUserDto
+  ) {
+    return this.cinemasService.linkUserToCinema(
+      cinemaId,
+      linkCinemaUserDto
+    );
   }
 }
 

@@ -6,14 +6,21 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
+import { CinemaUser } from './entities/cinema-user.entity';
+import { User } from '../users/entities/user.entity';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
+import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 
 @Injectable()
 export class CinemasService {
   constructor(
     @InjectRepository(Cinema)
-    private readonly cinemasRepository: Repository<Cinema>
+    private readonly cinemasRepository: Repository<Cinema>,
+    @InjectRepository(CinemaUser)
+    private readonly cinemaUsersRepository: Repository<CinemaUser>,
+    @InjectRepository(User)
+    private readonly usersRepository: Repository<User>
   ) {}
 
   async findOne(id: number): Promise<Cinema> {
@@ -135,6 +142,37 @@ export class CinemasService {
     } catch (error) {
       if (error?.code === '23505') {
         throw new BadRequestException('Cinema name must be unique');
+      }
+      throw error;
+    }
+  }
+
+  async linkUserToCinema(
+    cinemaId: number,
+    linkCinemaUserDto: LinkCinemaUserDto
+  ): Promise<CinemaUser> {
+    const cinema = await this.findOne(cinemaId);
+
+    const user = await this.usersRepository.findOne({
+      where: { id: linkCinemaUserDto.userId }
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${linkCinemaUserDto.userId} not found`);
+    }
+
+    const cinemaUser = this.cinemaUsersRepository.create({
+      cinemaId: cinema.id,
+      userId: linkCinemaUserDto.userId
+    });
+
+    try {
+      return await this.cinemaUsersRepository.save(cinemaUser);
+    } catch (error) {
+      const err = error as { code?: string };
+      // PostgreSQL unique constraint violation (cinema_id + user_id)
+      if (err?.code === '23505') {
+        throw new BadRequestException('User is already linked to this cinema');
       }
       throw error;
     }

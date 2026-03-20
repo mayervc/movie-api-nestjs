@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Cinema } from '../src/cinemas/entities/cinema.entity';
+import { CinemaUser } from '../src/cinemas/entities/cinema-user.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
@@ -11,10 +12,13 @@ import { createAdminAndUser } from './test-auth.helper';
 describe('CinemasController (e2e)', () => {
   let app: INestApplication;
   let cinemaRepository: Repository<Cinema>;
+  let cinemaUserRepository: Repository<CinemaUser>;
   let userRepository: Repository<User>;
   let dataSource: DataSource;
   let adminToken: string;
   let userToken: string;
+  let adminUserId: number;
+  let regularUserId: number;
 
   beforeAll(async () => {
     app = await createTestApp();
@@ -22,15 +26,20 @@ describe('CinemasController (e2e)', () => {
     cinemaRepository = testModule.get<Repository<Cinema>>(
       getRepositoryToken(Cinema)
     );
+    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
+      getRepositoryToken(CinemaUser)
+    );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
     dataSource = cinemaRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    await truncateTables(dataSource, ['cinemas', 'users']);
+    await truncateTables(dataSource, ['cinemas', 'users', 'cinema_users']);
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
+    adminUserId = auth.adminUser.id;
+    regularUserId = auth.regularUser.id;
   });
 
   describe('GET /cinemas', () => {
@@ -303,6 +312,63 @@ describe('CinemasController (e2e)', () => {
         .patch(`/cinemas/${cinema.id}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ name: '' })
+        .expect(400);
+    });
+  });
+
+  describe('POST /cinemas/:id/users', () => {
+    it('should link user to cinema when ADMIN', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Link Users' });
+
+      const response = await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/users`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ userId: regularUserId })
+        .expect(201);
+
+      expect(response.body.cinemaId).toBe(cinema.id);
+      expect(response.body.userId).toBe(regularUserId);
+
+      const saved = await cinemaUserRepository.findOne({
+        where: { cinemaId: cinema.id, userId: regularUserId }
+      });
+      expect(saved).toBeDefined();
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema NonAdmin Link' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/users`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ userId: regularUserId })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema NoAuth Link' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/users`)
+        .send({ userId: regularUserId })
+        .expect(401);
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer())
+        .post('/cinemas/99999/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ userId: regularUserId })
+        .expect(404);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Validation Link' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/users`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ userId: 0 })
         .expect(400);
     });
   });
