@@ -245,5 +245,66 @@ describe('CinemasController (e2e)', () => {
         .expect(400);
     });
   });
+
+  describe('PATCH /cinemas/:id', () => {
+    it('should update cinema when ADMIN', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema ToUpdate',
+        address: 'Old address'
+      });
+
+      const res = await request(app.getHttpServer())
+        .patch(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ address: 'New address' })
+        .expect(200);
+
+      expect(res.body.id).toBe(cinema.id);
+      expect(res.body.address).toBe('New address');
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema NonAdminUpdate'
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ address: 'Hacked address' })
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema UnauthenticatedUpdate'
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/cinemas/${cinema.id}`)
+        .send({ address: 'New address' })
+        .expect(401);
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer())
+        .patch('/cinemas/99999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ address: 'New address' })
+        .expect(404);
+    });
+
+    it('should return 400 when validation fails', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Validation'
+      });
+
+      await request(app.getHttpServer())
+        .patch(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: '' })
+        .expect(400);
+    });
+  });
 });
 
