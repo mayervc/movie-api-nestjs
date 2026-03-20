@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Cinema } from '../src/cinemas/entities/cinema.entity';
+import { CinemaUser } from '../src/cinemas/entities/cinema-user.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
@@ -11,6 +12,7 @@ import { createAdminAndUser } from './test-auth.helper';
 describe('CinemasController (e2e)', () => {
   let app: INestApplication;
   let cinemaRepository: Repository<Cinema>;
+  let cinemaUserRepository: Repository<CinemaUser>;
   let userRepository: Repository<User>;
   let dataSource: DataSource;
   let adminToken: string;
@@ -24,25 +26,15 @@ describe('CinemasController (e2e)', () => {
     cinemaRepository = testModule.get<Repository<Cinema>>(
       getRepositoryToken(Cinema)
     );
+    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
+      getRepositoryToken(CinemaUser)
+    );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
     dataSource = cinemaRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    await truncateTables(dataSource, ['cinemas', 'users']);
-
-    // STR-250: ensure join table exists for this endpoint PR (DB migration is separated)
-    await dataSource.query(`
-      CREATE TABLE IF NOT EXISTS "cinema_users" (
-        "id" SERIAL PRIMARY KEY,
-        "cinema_id" integer NOT NULL REFERENCES "cinemas"("id") ON DELETE CASCADE,
-        "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
-        "created_at" timestamp default now() NOT NULL,
-        UNIQUE ("cinema_id", "user_id")
-      );
-    `);
-
-    await dataSource.query(`TRUNCATE TABLE "cinema_users" CASCADE`);
+    await truncateTables(dataSource, ['cinemas', 'users', 'cinema_users']);
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
@@ -379,6 +371,61 @@ describe('CinemasController (e2e)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ userId: 0 })
         .expect(400);
+    });
+  });
+
+  describe('DELETE /cinemas/:id', () => {
+    it('should return 204 when ADMIN deletes cinema', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Admin' });
+
+      await request(app.getHttpServer())
+        .delete(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(204);
+
+      await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}`)
+        .expect(404);
+    });
+
+    it('should return 204 when owner (linked user) deletes cinema', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Owner' });
+
+      await cinemaUserRepository.save(
+        cinemaUserRepository.create({
+          cinemaId: cinema.id,
+          userId: regularUserId
+        })
+      );
+
+      await request(app.getHttpServer())
+        .delete(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(204);
+    });
+
+    it('should return 403 when non-owner non-ADMIN deletes cinema', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Forbidden' });
+
+      await request(app.getHttpServer())
+        .delete(`/cinemas/${cinema.id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Unauth' });
+
+      await request(app.getHttpServer())
+        .delete(`/cinemas/${cinema.id}`)
+        .expect(401);
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer())
+        .delete('/cinemas/99999')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
     });
   });
 });

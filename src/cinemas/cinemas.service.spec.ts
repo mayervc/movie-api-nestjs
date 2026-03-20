@@ -1,11 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException
+} from '@nestjs/common';
 import { DataSource, Repository } from 'typeorm';
 import { CinemasService } from './cinemas.service';
 import { Cinema } from './entities/cinema.entity';
+import { CinemaUser } from './entities/cinema-user.entity';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 describe('CinemasService (unit)', () => {
   let service: CinemasService;
@@ -34,10 +41,16 @@ describe('CinemasService (unit)', () => {
     findOne: jest.Mock;
     save: jest.Mock;
     createQueryBuilder: jest.Mock;
+    delete: jest.Mock;
   } = {
     findOne: jest.fn(),
     save: jest.fn(),
-    createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
+    createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder),
+    delete: jest.fn()
+  };
+
+  const mockCinemaUserRepository: { findOne: jest.Mock } = {
+    findOne: jest.fn()
   };
 
   const mockDataSource: { query: jest.Mock } = {
@@ -53,6 +66,10 @@ describe('CinemasService (unit)', () => {
         {
           provide: getRepositoryToken(Cinema),
           useValue: mockRepository as Partial<Repository<Cinema>>
+        },
+        {
+          provide: getRepositoryToken(CinemaUser),
+          useValue: mockCinemaUserRepository as Partial<Repository<CinemaUser>>
         },
         {
           provide: DataSource,
@@ -238,6 +255,80 @@ describe('CinemasService (unit)', () => {
       await expect(
         service.linkUserToCinema(cinemaId, dto)
       ).rejects.toThrow('User is already linked to this cinema');
+    });
+  });
+
+  describe('deleteCinema', () => {
+    const cinemaId = 1;
+
+    const adminUser: User = {
+      id: 10,
+      email: 'admin@test.com',
+      password: 'password',
+      role: UserRole.ADMIN,
+      firstName: null,
+      lastName: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const regularUser: User = {
+      id: 11,
+      email: 'user@test.com',
+      password: 'password',
+      role: UserRole.USER,
+      firstName: null,
+      lastName: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    it('should throw NotFoundException when cinema does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.deleteCinema(cinemaId, adminUser)
+      ).rejects.toBeInstanceOf(NotFoundException);
+    });
+
+    it('should delete cinema when called by ADMIN', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockRepository.delete.mockResolvedValue({} as never);
+
+      await expect(
+        service.deleteCinema(cinemaId, adminUser)
+      ).resolves.toBeUndefined();
+
+      expect(mockCinemaUserRepository.findOne).not.toHaveBeenCalled();
+      expect(mockRepository.delete).toHaveBeenCalledWith(cinemaId);
+    });
+
+    it('should throw ForbiddenException when called by non-owner non-ADMIN', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockCinemaUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.deleteCinema(cinemaId, regularUser)
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(mockRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('should delete cinema when called by owner (linked user)', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockCinemaUserRepository.findOne.mockResolvedValue({
+        id: 1,
+        cinemaId,
+        userId: regularUser.id,
+        createdAt: new Date()
+      } as CinemaUser);
+      mockRepository.delete.mockResolvedValue({} as never);
+
+      await expect(
+        service.deleteCinema(cinemaId, regularUser)
+      ).resolves.toBeUndefined();
+
+      expect(mockRepository.delete).toHaveBeenCalledWith(cinemaId);
     });
   });
 });
