@@ -4,7 +4,9 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { CinemasService } from './cinemas.service';
 import { Cinema } from './entities/cinema.entity';
+import { CinemaUser } from './entities/cinema-user.entity';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
+import { User } from '../users/entities/user.entity';
 
 describe('CinemasService (unit)', () => {
   let service: CinemasService;
@@ -39,6 +41,21 @@ describe('CinemasService (unit)', () => {
     createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
   };
 
+  const mockCinemaUserRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne?: jest.Mock;
+  } = {
+    create: jest.fn(),
+    save: jest.fn()
+  };
+
+  const mockUserRepository: {
+    findOne: jest.Mock;
+  } = {
+    findOne: jest.fn()
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -48,6 +65,14 @@ describe('CinemasService (unit)', () => {
         {
           provide: getRepositoryToken(Cinema),
           useValue: mockRepository as Partial<Repository<Cinema>>
+        },
+        {
+          provide: getRepositoryToken(CinemaUser),
+          useValue: mockCinemaUserRepository as Partial<Repository<CinemaUser>>
+        },
+        {
+          provide: getRepositoryToken(User),
+          useValue: mockUserRepository as Partial<Repository<User>>
         }
       ]
     }).compile();
