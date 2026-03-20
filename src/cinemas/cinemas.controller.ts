@@ -7,7 +7,6 @@ import {
   ParseIntPipe,
   Post,
   Patch,
-  Param,
   Body,
   HttpCode,
   HttpStatus,
