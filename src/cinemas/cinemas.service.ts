@@ -4,16 +4,18 @@ import {
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
+import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 
 @Injectable()
 export class CinemasService {
   constructor(
     @InjectRepository(Cinema)
-    private readonly cinemasRepository: Repository<Cinema>
+    private readonly cinemasRepository: Repository<Cinema>,
+    private readonly dataSource: DataSource
   ) {}
 
   async findOne(id: number): Promise<Cinema> {
@@ -135,6 +137,51 @@ export class CinemasService {
     } catch (error) {
       if (error?.code === '23505') {
         throw new BadRequestException('Cinema name must be unique');
+      }
+      throw error;
+    }
+  }
+
+  async linkUserToCinema(
+    cinemaId: number,
+    linkCinemaUserDto: LinkCinemaUserDto
+  ): Promise<{ cinemaId: number; userId: number }> {
+    await this.findOne(cinemaId); // ensure cinema exists
+
+    const userRows: Array<{ id: number }> = await this.dataSource.query(
+      `SELECT id FROM "users" WHERE id = $1`,
+      [linkCinemaUserDto.userId]
+    );
+
+    if (!userRows?.length) {
+      throw new NotFoundException(
+        `User with ID ${linkCinemaUserDto.userId} not found`
+      );
+    }
+
+    try {
+      const result: Array<{
+        cinemaId: number;
+        userId: number;
+      }> = await this.dataSource.query(
+        `
+          INSERT INTO "cinema_users" ("cinema_id", "user_id")
+          VALUES ($1, $2)
+          RETURNING "cinema_id" as "cinemaId", "user_id" as "userId"
+        `,
+        [cinemaId, linkCinemaUserDto.userId]
+      );
+
+      const row = result?.[0];
+      return {
+        cinemaId: row?.cinemaId ?? cinemaId,
+        userId: row?.userId ?? linkCinemaUserDto.userId
+      };
+    } catch (error) {
+      const err = error as { code?: string };
+      // PostgreSQL unique constraint violation (cinema_id + user_id)
+      if (err?.code === '23505') {
+        throw new BadRequestException('User is already linked to this cinema');
       }
       throw error;
     }
