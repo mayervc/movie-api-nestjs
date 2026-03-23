@@ -1,20 +1,26 @@
 import {
   BadRequestException,
   Injectable,
+  ForbiddenException,
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Cinema } from './entities/cinema.entity';
+import { CinemaUser } from './entities/cinema-user.entity';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class CinemasService {
   constructor(
     @InjectRepository(Cinema)
     private readonly cinemasRepository: Repository<Cinema>,
+    @InjectRepository(CinemaUser)
+    private readonly cinemaUsersRepository: Repository<CinemaUser>,
     private readonly dataSource: DataSource
   ) {}
 
@@ -185,6 +191,29 @@ export class CinemasService {
       }
       throw error;
     }
+  }
+
+  async deleteCinema(cinemaId: number, currentUser: User): Promise<void> {
+    const cinema = await this.cinemasRepository.findOne({
+      where: { id: cinemaId }
+    });
+
+    if (!cinema) {
+      throw new NotFoundException(`Cinema with ID ${cinemaId} not found`);
+    }
+
+    const isAdmin = currentUser.role === UserRole.ADMIN;
+    if (!isAdmin) {
+      const ownerLink = await this.cinemaUsersRepository.findOne({
+        where: { cinemaId, userId: currentUser.id }
+      });
+
+      if (!ownerLink) {
+        throw new ForbiddenException('Not allowed to delete this cinema');
+      }
+    }
+
+    await this.cinemasRepository.delete(cinemaId);
   }
 }
 

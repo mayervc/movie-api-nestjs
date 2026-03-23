@@ -7,6 +7,7 @@ import {
   ParseIntPipe,
   Post,
   Patch,
+  Delete,
   Body,
   HttpCode,
   HttpStatus,
@@ -19,12 +20,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { CinemasService } from './cinemas.service';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('cinemas')
 @Controller('cinemas')
@@ -122,6 +125,21 @@ export class CinemasController {
       cinemaId,
       linkCinemaUserDto
     );
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete a cinema' })
+  @ApiResponse({ status: 204, description: 'Cinema deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Not allowed to delete' })
+  @ApiResponse({ status: 404, description: 'Cinema not found' })
+  deleteCinema(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.cinemasService.deleteCinema(id, currentUser);
   }
 }
 
