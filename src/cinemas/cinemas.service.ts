@@ -215,5 +215,41 @@ export class CinemasService {
 
     await this.cinemasRepository.delete(cinemaId);
   }
+
+  async listUsersByCinema(cinemaId: number): Promise<
+    Array<{
+      id: number;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: UserRole;
+    }>
+  > {
+    await this.findOne(cinemaId);
+
+    const rows: Array<{
+      id: number;
+      email: string;
+      firstName: string | null;
+      lastName: string | null;
+      role: UserRole;
+    }> = await this.dataSource.query(
+      `
+        SELECT
+          u.id,
+          u.email,
+          u.first_name AS "firstName",
+          u.last_name AS "lastName",
+          u.role
+        FROM "cinema_users" cu
+        INNER JOIN "users" u ON u.id = cu.user_id
+        WHERE cu.cinema_id = $1
+        ORDER BY u.id ASC
+      `,
+      [cinemaId]
+    );
+
+    return rows;
+  }
 }
 

@@ -129,6 +129,53 @@ describe('CinemasController (e2e)', () => {
     });
   });
 
+  describe('GET /cinemas/:id/users', () => {
+    it('should return linked users when called by ADMIN', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Users List' });
+
+      await cinemaUserRepository.save(
+        cinemaUserRepository.create({
+          cinemaId: cinema.id,
+          userId: regularUserId
+        })
+      );
+
+      const response = await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}/users`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(200);
+
+      expect(Array.isArray(response.body)).toBe(true);
+      expect(response.body).toHaveLength(1);
+      expect(response.body[0].id).toBe(regularUserId);
+      expect(response.body[0].email).toBe('user@test.com');
+    });
+
+    it('should return 403 when called by non-ADMIN', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Users Forbidden' });
+
+      await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}/users`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Users NoAuth' });
+
+      await request(app.getHttpServer())
+        .get(`/cinemas/${cinema.id}/users`)
+        .expect(401);
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer())
+        .get('/cinemas/99999/users')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .expect(404);
+    });
+  });
+
   describe('GET /cinemas/search', () => {
     it('should return 200 with matching cinemas when q matches name', async () => {
       await cinemaRepository.save([

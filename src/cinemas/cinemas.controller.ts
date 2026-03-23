@@ -91,6 +91,18 @@ export class CinemasController {
     return this.cinemasService.findOne(id);
   }
 
+  @Get(':id/users')
+  @Roles(UserRole.ADMIN)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get users linked to a cinema' })
+  @ApiResponse({ status: 200, description: 'Users linked to cinema' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Admin role required' })
+  @ApiResponse({ status: 404, description: 'Cinema not found' })
+  listUsersByCinema(@Param('id', ParseIntPipe) id: number) {
+    return this.cinemasService.listUsersByCinema(id);
+  }
+
   @Patch(':id')
   @Roles(UserRole.ADMIN)
   @ApiBearerAuth()

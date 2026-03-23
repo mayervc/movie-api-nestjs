@@ -331,5 +331,43 @@ describe('CinemasService (unit)', () => {
       expect(mockRepository.delete).toHaveBeenCalledWith(cinemaId);
     });
   });
+
+  describe('listUsersByCinema', () => {
+    const cinemaId = 50;
+
+    it('should throw NotFoundException when cinema does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.listUsersByCinema(cinemaId)).rejects.toBeInstanceOf(
+        NotFoundException
+      );
+      expect(mockDataSource.query).not.toHaveBeenCalled();
+    });
+
+    it('should return linked users when cinema exists', async () => {
+      mockRepository.findOne.mockResolvedValue({
+        ...cinema1,
+        id: cinemaId
+      });
+      mockDataSource.query.mockResolvedValue([
+        {
+          id: 11,
+          email: 'user@test.com',
+          firstName: 'Regular',
+          lastName: 'User',
+          role: UserRole.USER
+        }
+      ]);
+
+      const result = await service.listUsersByCinema(cinemaId);
+
+      expect(mockDataSource.query).toHaveBeenCalledWith(
+        expect.stringContaining('FROM "cinema_users" cu'),
+        [cinemaId]
+      );
+      expect(result).toHaveLength(1);
+      expect(result[0].email).toBe('user@test.com');
+    });
+  });
 });
 
