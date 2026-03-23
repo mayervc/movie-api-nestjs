@@ -3,7 +3,6 @@ import { Actor } from '../actors/entities/actor.entity';
 // import { Cast } from '../cast/entities/cast.entity'; // Temporalmente deshabilitado para evitar problemas de sincronización
 import { User } from '../users/entities/user.entity';
 import { Cinema } from '../cinemas/entities/cinema.entity';
-import { CinemaUser } from '../cinemas/entities/cinema-user.entity';
 
 /**
  * Array centralizado de todas las entidades de TypeORM
@@ -12,4 +11,4 @@ import { CinemaUser } from '../cinemas/entities/cinema-user.entity';
  *
  * NOTA: Cast está temporalmente deshabilitado hasta resolver los problemas de sincronización
  */
-export const entities = [Movie, Actor, User, Cinema, CinemaUser]; // Cast removido temporalmente
+export const entities = [Movie, Actor, User, Cinema]; // Cast removido temporalmente

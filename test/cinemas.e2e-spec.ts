@@ -3,7 +3,6 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Cinema } from '../src/cinemas/entities/cinema.entity';
-import { CinemaUser } from '../src/cinemas/entities/cinema-user.entity';
 import { User } from '../src/users/entities/user.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
@@ -12,7 +11,6 @@ import { createAdminAndUser } from './test-auth.helper';
 describe('CinemasController (e2e)', () => {
   let app: INestApplication;
   let cinemaRepository: Repository<Cinema>;
-  let cinemaUserRepository: Repository<CinemaUser>;
   let userRepository: Repository<User>;
   let dataSource: DataSource;
   let adminToken: string;
@@ -26,15 +24,25 @@ describe('CinemasController (e2e)', () => {
     cinemaRepository = testModule.get<Repository<Cinema>>(
       getRepositoryToken(Cinema)
     );
-    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
-      getRepositoryToken(CinemaUser)
-    );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
     dataSource = cinemaRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    await truncateTables(dataSource, ['cinemas', 'users', 'cinema_users']);
+    await truncateTables(dataSource, ['cinemas', 'users']);
+
+    // STR-250: ensure join table exists for this endpoint PR (DB migration is separated)
+    await dataSource.query(`
+      CREATE TABLE IF NOT EXISTS "cinema_users" (
+        "id" SERIAL PRIMARY KEY,
+        "cinema_id" integer NOT NULL REFERENCES "cinemas"("id") ON DELETE CASCADE,
+        "user_id" integer NOT NULL REFERENCES "users"("id") ON DELETE CASCADE,
+        "created_at" timestamp default now() NOT NULL,
+        UNIQUE ("cinema_id", "user_id")
+      );
+    `);
+
+    await dataSource.query(`TRUNCATE TABLE "cinema_users" CASCADE`);
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
@@ -329,10 +337,11 @@ describe('CinemasController (e2e)', () => {
       expect(response.body.cinemaId).toBe(cinema.id);
       expect(response.body.userId).toBe(regularUserId);
 
-      const saved = await cinemaUserRepository.findOne({
-        where: { cinemaId: cinema.id, userId: regularUserId }
-      });
-      expect(saved).toBeDefined();
+      const rows = await dataSource.query(
+        `SELECT id FROM "cinema_users" WHERE "cinema_id" = $1 AND "user_id" = $2`,
+        [cinema.id, regularUserId]
+      );
+      expect(rows).toHaveLength(1);
     });
 
     it('should return 403 when called by non-ADMIN', async () => {

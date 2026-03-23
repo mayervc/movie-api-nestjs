@@ -1,13 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { BadRequestException, NotFoundException } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { CinemasService } from './cinemas.service';
 import { Cinema } from './entities/cinema.entity';
-import { CinemaUser } from './entities/cinema-user.entity';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
-import { User } from '../users/entities/user.entity';
 
 describe('CinemasService (unit)', () => {
   let service: CinemasService;
@@ -42,19 +40,8 @@ describe('CinemasService (unit)', () => {
     createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
   };
 
-  const mockCinemaUserRepository: {
-    create: jest.Mock;
-    save: jest.Mock;
-    findOne?: jest.Mock;
-  } = {
-    create: jest.fn(),
-    save: jest.fn()
-  };
-
-  const mockUserRepository: {
-    findOne: jest.Mock;
-  } = {
-    findOne: jest.fn()
+  const mockDataSource: { query: jest.Mock } = {
+    query: jest.fn()
   };
 
   beforeEach(async () => {
@@ -68,12 +55,8 @@ describe('CinemasService (unit)', () => {
           useValue: mockRepository as Partial<Repository<Cinema>>
         },
         {
-          provide: getRepositoryToken(CinemaUser),
-          useValue: mockCinemaUserRepository as Partial<Repository<CinemaUser>>
-        },
-        {
-          provide: getRepositoryToken(User),
-          useValue: mockUserRepository as Partial<Repository<User>>
+          provide: DataSource,
+          useValue: mockDataSource
         }
       ]
     }).compile();
@@ -206,17 +189,6 @@ describe('CinemasService (unit)', () => {
       updatedAt: new Date()
     };
 
-    const user: User = {
-      id: userId,
-      email: 'user@test.com',
-      password: 'password',
-      role: 'user' as any,
-      firstName: null,
-      lastName: null,
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
     it('should throw NotFoundException when cinema does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(null);
 
@@ -228,11 +200,12 @@ describe('CinemasService (unit)', () => {
       expect(mockRepository.findOne).toHaveBeenCalledWith({
         where: { id: cinemaId }
       });
+      expect(mockDataSource.query).not.toHaveBeenCalled();
     });
 
     it('should throw NotFoundException when user does not exist', async () => {
       mockRepository.findOne.mockResolvedValue(cinema);
-      mockUserRepository.findOne.mockResolvedValue(null);
+      mockDataSource.query.mockResolvedValueOnce([]);
 
       const dto: LinkCinemaUserDto = { userId };
 
@@ -240,44 +213,25 @@ describe('CinemasService (unit)', () => {
         service.linkUserToCinema(cinemaId, dto)
       ).rejects.toBeInstanceOf(NotFoundException);
 
-      expect(mockUserRepository.findOne).toHaveBeenCalledWith({
-        where: { id: userId }
-      });
+      expect(mockDataSource.query).toHaveBeenCalledTimes(1);
     });
 
     it('should create cinema-user link when user and cinema exist', async () => {
-      const cinemaUser: CinemaUser = {
-        id: 1,
-        cinemaId,
-        userId,
-        createdAt: new Date()
-      };
-
       mockRepository.findOne.mockResolvedValue(cinema);
-      mockUserRepository.findOne.mockResolvedValue(user);
-      mockCinemaUserRepository.create.mockReturnValue(cinemaUser);
-      mockCinemaUserRepository.save.mockResolvedValue(cinemaUser);
+      mockDataSource.query.mockResolvedValueOnce([{ id: userId }]);
+      mockDataSource.query.mockResolvedValueOnce([{ cinemaId, userId }]);
 
       const dto: LinkCinemaUserDto = { userId };
 
       const res = await service.linkUserToCinema(cinemaId, dto);
 
-      expect(mockCinemaUserRepository.create).toHaveBeenCalledWith({
-        cinemaId,
-        userId
-      });
-      expect(mockCinemaUserRepository.save).toHaveBeenCalledWith(cinemaUser);
-      expect(res).toEqual(cinemaUser);
+      expect(res).toEqual({ cinemaId, userId });
     });
 
     it('should throw BadRequestException when user already linked to cinema', async () => {
       mockRepository.findOne.mockResolvedValue(cinema);
-      mockUserRepository.findOne.mockResolvedValue(user);
-      mockCinemaUserRepository.create.mockReturnValue({
-        cinemaId,
-        userId
-      });
-      mockCinemaUserRepository.save.mockRejectedValue({ code: '23505' });
+      mockDataSource.query.mockResolvedValueOnce([{ id: userId }]);
+      mockDataSource.query.mockRejectedValueOnce({ code: '23505' });
 
       const dto: LinkCinemaUserDto = { userId };
 

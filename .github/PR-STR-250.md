@@ -20,10 +20,8 @@
 - `src/cinemas/cinemas.controller.ts` – add POST `/cinemas/:id/users`
 - `src/cinemas/cinemas.service.ts` – add `linkUserToCinema()`
 - `src/cinemas/dto/link-cinema-user.dto.ts` – DTO for `{ userId }`
-- `src/cinemas/entities/cinema-user.entity.ts` – join entity
-- `src/migrations/1700000000011-CreateCinemaUsersTable.ts` – create `cinema_users` table
 - `test/cinemas.e2e-spec.ts` – add POST tests
-- `test/test-db.helper.ts` / `test/test-setup.ts` – include `cinema_users` table
+- `test/cinemas.e2e-spec.ts` – create/truncate `cinema_users` table for these tests
 
 ---
 ## Tests
