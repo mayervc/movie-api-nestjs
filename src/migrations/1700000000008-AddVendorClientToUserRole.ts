@@ -11,18 +11,18 @@ export class AddVendorClientToUserRole1700000000008 implements MigrationInterfac
           SELECT 1
           FROM pg_enum
           WHERE enumlabel = 'vendor'
-            AND enumtypid = 'user_role_enum'::regtype
+            AND enumtypid = 'users_role_enum'::regtype
         ) THEN
-          ALTER TYPE "user_role_enum" ADD VALUE 'vendor';
+          ALTER TYPE "users_role_enum" ADD VALUE 'vendor';
         END IF;
 
         IF NOT EXISTS (
           SELECT 1
           FROM pg_enum
           WHERE enumlabel = 'client'
-            AND enumtypid = 'user_role_enum'::regtype
+            AND enumtypid = 'users_role_enum'::regtype
         ) THEN
-          ALTER TYPE "user_role_enum" ADD VALUE 'client';
+          ALTER TYPE "users_role_enum" ADD VALUE 'client';
         END IF;
       END
       $$;
