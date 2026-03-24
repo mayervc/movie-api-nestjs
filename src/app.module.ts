@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { RolesGuard } from './auth/guards/roles.guard';
 import { entities } from './config/entities';
 import { CinemasModule } from './cinemas/cinemas.module';
+import { ActorsModule } from './actors/actors.module';
 
 @Module({
   imports: [
@@ -34,7 +35,8 @@ import { CinemasModule } from './cinemas/cinemas.module';
     MoviesModule,
     UsersModule,
     AuthModule,
-    CinemasModule
+    CinemasModule,
+    ActorsModule
   ],
   providers: [
     {

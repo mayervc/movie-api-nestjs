@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToMany,
-  JoinTable
+  JoinTable,
+  OneToMany
 } from 'typeorm';
 import { Movie } from '../../movies/entities/movie.entity';
+import { Cast } from '../../cast/entities/cast.entity';
 
 @Entity('actors')
 export class Actor {
@@ -57,4 +59,7 @@ export class Actor {
     inverseJoinColumn: { name: 'movie_id', referencedColumnName: 'id' }
   })
   movies: Movie[];
+
+  @OneToMany(() => Cast, (cast) => cast.actor)
+  cast: Cast[];
 }
