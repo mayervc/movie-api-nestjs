@@ -10,14 +10,14 @@ import {
   Delete,
   Body,
   HttpCode,
-  HttpStatus,
+  HttpStatus
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
   ApiQuery,
   ApiResponse,
-  ApiTags,
+  ApiTags
 } from '@nestjs/swagger';
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -121,10 +121,7 @@ export class CinemasController {
     @Param('id', ParseIntPipe) cinemaId: number,
     @Body() linkCinemaUserDto: LinkCinemaUserDto
   ) {
-    return this.cinemasService.linkUserToCinema(
-      cinemaId,
-      linkCinemaUserDto
-    );
+    return this.cinemasService.linkUserToCinema(cinemaId, linkCinemaUserDto);
   }
 
   @Delete(':id')
@@ -133,7 +130,10 @@ export class CinemasController {
   @ApiOperation({ summary: 'Delete a cinema' })
   @ApiResponse({ status: 204, description: 'Cinema deleted successfully' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden - Not allowed to delete' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Not allowed to delete'
+  })
   @ApiResponse({ status: 404, description: 'Cinema not found' })
   deleteCinema(
     @Param('id', ParseIntPipe) id: number,
@@ -142,4 +142,3 @@ export class CinemasController {
     return this.cinemasService.deleteCinema(id, currentUser);
   }
 }
-

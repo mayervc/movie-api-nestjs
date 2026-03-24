@@ -38,4 +38,3 @@ export class UpdateCinemaDto {
   @MaxLength(10)
   countryCode?: string;
 }
-

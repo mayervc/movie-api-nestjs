@@ -72,8 +72,7 @@ export class CinemasService {
     const skip = (pageNum - 1) * limitNum;
     const trimmed = (q ?? '').trim();
 
-    const queryBuilder =
-      this.cinemasRepository.createQueryBuilder('cinema');
+    const queryBuilder = this.cinemasRepository.createQueryBuilder('cinema');
 
     if (trimmed) {
       queryBuilder.where(
@@ -89,10 +88,7 @@ export class CinemasService {
       );
     }
 
-    queryBuilder
-      .orderBy('cinema.createdAt', 'DESC')
-      .skip(skip)
-      .take(limitNum);
+    queryBuilder.orderBy('cinema.createdAt', 'DESC').skip(skip).take(limitNum);
 
     const [data, total] = await queryBuilder.getManyAndCount();
 
@@ -216,4 +212,3 @@ export class CinemasService {
     await this.cinemasRepository.delete(cinemaId);
   }
 }
-

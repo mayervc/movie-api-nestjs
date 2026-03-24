@@ -41,4 +41,3 @@ export class CreateCinemasTable1700000000009 implements MigrationInterface {
     await queryRunner.dropTable('cinemas');
   }
 }
-

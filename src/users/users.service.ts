@@ -76,5 +76,4 @@ export class UsersService {
     Object.assign(user, updates);
     return await this.userRepository.save(user);
   }
-
 }

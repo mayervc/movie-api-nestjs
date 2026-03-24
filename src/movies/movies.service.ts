@@ -150,7 +150,10 @@ export class MoviesService {
         .fontSize(10)
         .font('Helvetica')
         .fillColor('#666666')
-        .text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
+        .text(
+          `Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+          { align: 'center' }
+        );
       doc.fillColor('#000000');
       doc.moveDown(1);
 

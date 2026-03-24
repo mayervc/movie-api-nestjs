@@ -1,8 +1,6 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
-export class AddVendorClientToUserRole1700000000008
-  implements MigrationInterface
-{
+export class AddVendorClientToUserRole1700000000008 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     // Extend the existing Postgres enum type "user_role_enum"
     // Values originally created by 1700000000005-AddRoleToUsers.ts
@@ -36,4 +34,3 @@ export class AddVendorClientToUserRole1700000000008
     // Keeping down() as a no-op is acceptable for this migration.
   }
 }
-

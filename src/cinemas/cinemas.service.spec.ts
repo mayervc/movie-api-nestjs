@@ -95,7 +95,9 @@ describe('CinemasService (unit)', () => {
       await expect(service.findOne(123)).rejects.toBeInstanceOf(
         NotFoundException
       );
-      expect(mockRepository.findOne).toHaveBeenCalledWith({ where: { id: 123 } });
+      expect(mockRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 123 }
+      });
     });
   });
 
@@ -135,9 +137,9 @@ describe('CinemasService (unit)', () => {
     });
 
     it('should throw BadRequestException when page is < 1', async () => {
-      await expect(service.search('x', 0 as unknown as number, 10)).rejects.toThrow(
-        BadRequestException
-      );
+      await expect(
+        service.search('x', 0 as unknown as number, 10)
+      ).rejects.toThrow(BadRequestException);
     });
 
     it('should throw BadRequestException when page is not a number', async () => {
@@ -159,7 +161,10 @@ describe('CinemasService (unit)', () => {
       const dto: UpdateCinemaDto = { address: 'New address' };
 
       mockRepository.findOne.mockResolvedValue({ ...cinema1 });
-      mockRepository.save.mockResolvedValue({ ...cinema1, address: 'New address' });
+      mockRepository.save.mockResolvedValue({
+        ...cinema1,
+        address: 'New address'
+      });
 
       const res = await service.update(1, dto);
 
@@ -252,9 +257,9 @@ describe('CinemasService (unit)', () => {
 
       const dto: LinkCinemaUserDto = { userId };
 
-      await expect(
-        service.linkUserToCinema(cinemaId, dto)
-      ).rejects.toThrow('User is already linked to this cinema');
+      await expect(service.linkUserToCinema(cinemaId, dto)).rejects.toThrow(
+        'User is already linked to this cinema'
+      );
     });
   });
 
@@ -332,4 +337,3 @@ describe('CinemasService (unit)', () => {
     });
   });
 });
-
