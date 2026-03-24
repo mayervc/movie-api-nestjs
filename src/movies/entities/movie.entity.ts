@@ -4,9 +4,11 @@ import {
   PrimaryGeneratedColumn,
   CreateDateColumn,
   UpdateDateColumn,
-  ManyToMany
+  ManyToMany,
+  OneToMany
 } from 'typeorm';
 import { Actor } from '../../actors/entities/actor.entity';
+import { Cast } from '../../cast/entities/cast.entity';
 
 @Entity('movies')
 export class Movie {
@@ -51,4 +53,7 @@ export class Movie {
 
   @ManyToMany(() => Actor, (actor) => actor.movies)
   actors: Actor[];
+
+  @OneToMany(() => Cast, (cast) => cast.movie)
+  cast: Cast[];
 }
