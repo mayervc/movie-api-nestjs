@@ -1,18 +1,22 @@
 import {
   IsDateString,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
-  Min
+  Min,
+  ValidateIf
 } from 'class-validator';
 
 export class CreateActorDto {
+  @ValidateIf((o) => !o.lastName)
   @IsString()
-  @IsOptional()
+  @IsNotEmpty()
   firstName?: string;
 
+  @ValidateIf((o) => !o.firstName)
   @IsString()
-  @IsOptional()
+  @IsNotEmpty()
   lastName?: string;
 
   @IsString()
