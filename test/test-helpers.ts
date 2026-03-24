@@ -1,4 +1,3 @@
-import { DataSource } from 'typeorm';
 import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**

@@ -17,7 +17,6 @@ describe('CinemasController (e2e)', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let userToken: string;
-  let adminUserId: number;
   let regularUserId: number;
 
   beforeAll(async () => {
@@ -38,7 +37,6 @@ describe('CinemasController (e2e)', () => {
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
-    adminUserId = auth.adminUser.id;
     regularUserId = auth.regularUser.id;
   });
 
