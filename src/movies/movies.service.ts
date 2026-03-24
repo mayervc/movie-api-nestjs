@@ -169,7 +169,9 @@ export class MoviesService {
       where: { movieId, actorId: dto.actorId }
     });
     if (existing) {
-      throw new BadRequestException('Actor is already in the cast of this movie');
+      throw new BadRequestException(
+        'Actor is already in the cast of this movie'
+      );
     }
 
     const cast = this.castRepository.create({
@@ -193,7 +195,10 @@ export class MoviesService {
     await this.castRepository.remove(cast);
   }
 
-  async bulkRemoveFromCast(movieId: number, dto: BulkRemoveCastDto): Promise<void> {
+  async bulkRemoveFromCast(
+    movieId: number,
+    dto: BulkRemoveCastDto
+  ): Promise<void> {
     await this.findOne(movieId);
     await this.castRepository.delete({ movieId, actorId: In(dto.actorIds) });
   }
