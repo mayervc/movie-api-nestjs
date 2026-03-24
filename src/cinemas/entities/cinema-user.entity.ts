@@ -1,4 +1,9 @@
-import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import {
+  Column,
+  CreateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn
+} from 'typeorm';
 
 @Entity('cinema_users')
 export class CinemaUser {
@@ -14,4 +19,3 @@ export class CinemaUser {
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
-

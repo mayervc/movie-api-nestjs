@@ -58,7 +58,9 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async createAdmin(@Body() dto: CreateUserByAdminDto): Promise<UserResponseDto> {
+  async createAdmin(
+    @Body() dto: CreateUserByAdminDto
+  ): Promise<UserResponseDto> {
     const user = await this.usersService.create({
       email: dto.email,
       password: dto.password,
@@ -77,7 +79,9 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 403, description: 'Forbidden' })
   @ApiResponse({ status: 409, description: 'Email already exists' })
-  async createVendor(@Body() dto: CreateUserByAdminDto): Promise<UserResponseDto> {
+  async createVendor(
+    @Body() dto: CreateUserByAdminDto
+  ): Promise<UserResponseDto> {
     const user = await this.usersService.create({
       email: dto.email,
       password: dto.password,

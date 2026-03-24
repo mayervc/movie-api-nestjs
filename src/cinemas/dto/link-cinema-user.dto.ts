@@ -6,4 +6,3 @@ export class LinkCinemaUserDto {
   @Min(1)
   userId: number;
 }
-

@@ -1,4 +1,9 @@
-import { MigrationInterface, QueryRunner, Table, TableForeignKey } from 'typeorm';
+import {
+  MigrationInterface,
+  QueryRunner,
+  Table,
+  TableForeignKey
+} from 'typeorm';
 
 export class CreateCinemaUsersTable1700000000011 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
@@ -15,7 +20,12 @@ export class CreateCinemaUsersTable1700000000011 implements MigrationInterface {
           },
           { name: 'cinema_id', type: 'integer', isNullable: false },
           { name: 'user_id', type: 'integer', isNullable: false },
-          { name: 'created_at', type: 'timestamp', default: 'now()', isNullable: false }
+          {
+            name: 'created_at',
+            type: 'timestamp',
+            default: 'now()',
+            isNullable: false
+          }
         ],
         uniques: [
           {
@@ -46,4 +56,3 @@ export class CreateCinemaUsersTable1700000000011 implements MigrationInterface {
     await queryRunner.dropTable('cinema_users', true);
   }
 }
-

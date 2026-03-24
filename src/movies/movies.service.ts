@@ -4,7 +4,7 @@ import {
   BadRequestException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Movie } from './entities/movie.entity';
 import { CreateMovieDto } from './dto/create-movie.dto';
 import { UpdateMovieDto } from './dto/update-movie.dto';
@@ -49,7 +49,7 @@ export class MoviesService {
   }
 
   async update(id: number, updateMovieDto: UpdateMovieDto): Promise<Movie> {
-    const movie = await this.findOne(id);
+    await this.findOne(id);
 
     if (Object.keys(updateMovieDto).length === 0) {
       throw new BadRequestException('Request body cannot be empty');
@@ -150,7 +150,10 @@ export class MoviesService {
         .fontSize(10)
         .font('Helvetica')
         .fillColor('#666666')
-        .text(`Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, { align: 'center' });
+        .text(
+          `Generated on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+          { align: 'center' }
+        );
       doc.fillColor('#000000');
       doc.moveDown(1);
 

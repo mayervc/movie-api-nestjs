@@ -10,8 +10,6 @@ import { SignupDto } from './dto/signup.dto';
 
 describe('AuthService', () => {
   let authService: AuthService;
-  let usersService: UsersService;
-  let jwtService: JwtService;
 
   // Mock data
   const mockUser: User = {
@@ -50,8 +48,6 @@ describe('AuthService', () => {
     }).compile();
 
     authService = module.get<AuthService>(AuthService);
-    usersService = module.get<UsersService>(UsersService);
-    jwtService = module.get<JwtService>(JwtService);
   });
 
   beforeEach(() => {

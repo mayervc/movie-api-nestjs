@@ -59,7 +59,11 @@ export class MoviesController {
   @Public()
   @ApiOperation({ summary: 'Download trending movies as PDF' })
   @ApiProduces('application/pdf')
-  @ApiResponse({ status: 200, description: 'PDF file with trending movies', content: { 'application/pdf': {} } })
+  @ApiResponse({
+    status: 200,
+    description: 'PDF file with trending movies',
+    content: { 'application/pdf': {} }
+  })
   async getTrendingPdf(@Res() res: Response) {
     const buffer = await this.moviesService.generateTrendingPdf();
     res.set({

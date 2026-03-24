@@ -17,7 +17,6 @@ describe('CinemasController (e2e)', () => {
   let dataSource: DataSource;
   let adminToken: string;
   let userToken: string;
-  let adminUserId: number;
   let regularUserId: number;
 
   beforeAll(async () => {
@@ -38,7 +37,6 @@ describe('CinemasController (e2e)', () => {
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
-    adminUserId = auth.adminUser.id;
     regularUserId = auth.regularUser.id;
   });
 
@@ -337,7 +335,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 403 when called by non-ADMIN', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema NonAdmin Link' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema NonAdmin Link'
+      });
 
       await request(app.getHttpServer())
         .post(`/cinemas/${cinema.id}/users`)
@@ -347,7 +347,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema NoAuth Link' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema NoAuth Link'
+      });
 
       await request(app.getHttpServer())
         .post(`/cinemas/${cinema.id}/users`)
@@ -364,7 +366,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 400 when validation fails', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema Validation Link' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Validation Link'
+      });
 
       await request(app.getHttpServer())
         .post(`/cinemas/${cinema.id}/users`)
@@ -376,7 +380,9 @@ describe('CinemasController (e2e)', () => {
 
   describe('DELETE /cinemas/:id', () => {
     it('should return 204 when ADMIN deletes cinema', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Admin' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Delete Admin'
+      });
 
       await request(app.getHttpServer())
         .delete(`/cinemas/${cinema.id}`)
@@ -389,7 +395,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 204 when owner (linked user) deletes cinema', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Owner' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Delete Owner'
+      });
 
       await cinemaUserRepository.save(
         cinemaUserRepository.create({
@@ -405,7 +413,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 403 when non-owner non-ADMIN deletes cinema', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Forbidden' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Delete Forbidden'
+      });
 
       await request(app.getHttpServer())
         .delete(`/cinemas/${cinema.id}`)
@@ -414,7 +424,9 @@ describe('CinemasController (e2e)', () => {
     });
 
     it('should return 401 when not authenticated', async () => {
-      const cinema = await cinemaRepository.save({ name: 'Cinema Delete Unauth' });
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Delete Unauth'
+      });
 
       await request(app.getHttpServer())
         .delete(`/cinemas/${cinema.id}`)
@@ -429,4 +441,3 @@ describe('CinemasController (e2e)', () => {
     });
   });
 });
-

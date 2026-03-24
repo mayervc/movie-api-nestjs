@@ -11,7 +11,6 @@ import { UserRole } from '../users/enums/user-role.enum';
 
 describe('AuthController', () => {
   let controller: AuthController;
-  let authService: AuthService;
 
   const mockUser: User = {
     id: 1,
@@ -46,7 +45,6 @@ describe('AuthController', () => {
     }).compile();
 
     controller = module.get<AuthController>(AuthController);
-    authService = module.get<AuthService>(AuthService);
 
     jest.clearAllMocks();
   });

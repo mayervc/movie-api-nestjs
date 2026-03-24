@@ -13,4 +13,3 @@ import { User } from '../users/entities/user.entity';
   exports: [CinemasService]
 })
 export class CinemasModule {}
-

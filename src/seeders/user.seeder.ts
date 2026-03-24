@@ -27,7 +27,9 @@ export async function seedUsers(dataSource: DataSource): Promise<void> {
   ];
 
   for (const u of users) {
-    const existing = await userRepository.findOne({ where: { email: u.email } });
+    const existing = await userRepository.findOne({
+      where: { email: u.email }
+    });
     if (!existing) {
       await userRepository.save(userRepository.create(u));
       console.log(`  User created: ${u.email} (role: ${u.role})`);

@@ -10,7 +10,7 @@ import {
   IsNumber,
   MinLength,
   Max,
-  ValidateIf,
+  ValidateIf
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -61,5 +61,3 @@ export class CreateMovieDto {
   @IsInt()
   tmdbId?: number;
 }
-
-

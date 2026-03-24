@@ -4,9 +4,7 @@ import { MigrationInterface, QueryRunner } from 'typeorm';
  * Adds location/contact columns to cinemas. Uses IF NOT EXISTS so re-runs /
  * DBs that already have some columns (e.g. manual changes) do not fail.
  */
-export class AddCinemasLocationContactColumns1700000000010
-  implements MigrationInterface
-{
+export class AddCinemasLocationContactColumns1700000000010 implements MigrationInterface {
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE "cinemas" ADD COLUMN IF NOT EXISTS "address" varchar(500);

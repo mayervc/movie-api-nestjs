@@ -3,7 +3,7 @@ import {
   IsString,
   MinLength,
   IsOptional,
-  MaxLength,
+  MaxLength
 } from 'class-validator';
 
 export class CreateCinemaDto {
@@ -37,4 +37,3 @@ export class CreateCinemaDto {
   @MaxLength(10)
   countryCode?: string;
 }
-

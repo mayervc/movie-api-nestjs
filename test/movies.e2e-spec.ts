@@ -412,7 +412,7 @@ describe('MoviesController (e2e)', () => {
       // Esperar un poco para que tenga un timestamp diferente
       await new Promise((resolve) => setTimeout(resolve, 10));
 
-      const movie2 = await movieRepository.save({
+      await movieRepository.save({
         title: 'Trending Movie 2',
         releaseDate: new Date('2023-01-02'),
         duration: 100,

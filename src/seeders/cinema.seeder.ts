@@ -25,4 +25,3 @@ export async function seedCinemas(dataSource: DataSource): Promise<void> {
     console.log(`  Cinema ensured: ${c.name}`);
   }
 }
-

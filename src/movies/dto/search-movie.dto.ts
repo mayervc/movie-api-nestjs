@@ -18,5 +18,3 @@ export class SearchMovieDto {
   @Min(1)
   limit?: number;
 }
-
-
