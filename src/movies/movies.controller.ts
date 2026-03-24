@@ -175,10 +175,7 @@ export class MoviesController {
   @ApiResponse({ status: 201, description: 'Actor added to cast' })
   @ApiResponse({ status: 400, description: 'Actor already in cast' })
   @ApiResponse({ status: 404, description: 'Movie not found' })
-  addToCast(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: AddCastDto
-  ) {
+  addToCast(@Param('id', ParseIntPipe) id: number, @Body() dto: AddCastDto) {
     return this.moviesService.addToCast(id, dto);
   }
 
