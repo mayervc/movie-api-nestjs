@@ -10,6 +10,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { entities } from './config/entities';
 import { CinemasModule } from './cinemas/cinemas.module';
 import { ActorsModule } from './actors/actors.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
@@ -36,7 +37,8 @@ import { ActorsModule } from './actors/actors.module';
     UsersModule,
     AuthModule,
     CinemasModule,
-    ActorsModule
+    ActorsModule,
+    RoomsModule
   ],
   providers: [
     {

@@ -10,6 +10,9 @@ export const TRUNCATEABLE_TABLES = [
   'movies',
   'actors',
   'users',
+  'room_seats',
+  'room_blocks',
+  'rooms',
   'cinemas',
   'cinema_users'
 ] as const;
