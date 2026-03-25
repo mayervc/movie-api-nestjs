@@ -10,6 +10,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
 import { entities } from './config/entities';
 import { CinemasModule } from './cinemas/cinemas.module';
 import { ActorsModule } from './actors/actors.module';
+import { RoomsModule } from './rooms/rooms.module';
 
 @Module({
   imports: [
@@ -27,7 +28,7 @@ import { ActorsModule } from './actors/actors.module';
         password: configService.get('DB_PASSWORD', 'stremio_pass'),
         database: configService.get('DB_DATABASE', 'stremio_db_dev'),
         entities: entities,
-        synchronize: configService.get('NODE_ENV') !== 'production',
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development'
       }),
       inject: [ConfigService]
@@ -36,7 +37,8 @@ import { ActorsModule } from './actors/actors.module';
     UsersModule,
     AuthModule,
     CinemasModule,
-    ActorsModule
+    ActorsModule,
+    RoomsModule
   ],
   providers: [
     {
