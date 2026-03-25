@@ -1,65 +1,57 @@
 import { DataSource } from 'typeorm';
 
-type BlockLayout = {
-  name: string;
-  rowLabel: string;
-  seatCount: number;
+type BlockConfig = {
+  rowSeats: number;
+  columnsSeats: number;
 };
 
-type RoomLayout = {
+type RoomConfig = {
   name: string;
-  blocks: BlockLayout[];
+  rowsBlocks: number;
+  columnsBlocks: number;
+  blockConfig: BlockConfig;
+  details?: string;
 };
 
 type CinemaLayout = {
   cinemaName: string;
-  rooms: RoomLayout[];
+  rooms: RoomConfig[];
 };
 
-const STANDARD: RoomLayout = {
+const STANDARD: RoomConfig = {
   name: 'Sala Estandar',
-  blocks: [
-    { name: 'Frontal', rowLabel: 'A', seatCount: 12 },
-    { name: 'Central Izquierda', rowLabel: 'B', seatCount: 16 },
-    { name: 'Central Derecha', rowLabel: 'C', seatCount: 16 },
-    { name: 'Posterior', rowLabel: 'D', seatCount: 12 }
-  ]
+  rowsBlocks: 2,
+  columnsBlocks: 2,
+  blockConfig: { rowSeats: 5, columnsSeats: 6 }
 };
 
-const LARGE: RoomLayout = {
+const LARGE: RoomConfig = {
   name: 'Sala Grande',
-  blocks: [
-    { name: 'Platea Frontal', rowLabel: 'A', seatCount: 20 },
-    { name: 'Platea Central', rowLabel: 'B', seatCount: 25 },
-    { name: 'Platea Central', rowLabel: 'C', seatCount: 25 },
-    { name: 'Nivel Superior', rowLabel: 'D', seatCount: 20 },
-    { name: 'Nivel Superior Posterior', rowLabel: 'E', seatCount: 15 }
-  ]
+  rowsBlocks: 3,
+  columnsBlocks: 2,
+  blockConfig: { rowSeats: 6, columnsSeats: 7 }
 };
 
-const SMALL: RoomLayout = {
+const SMALL: RoomConfig = {
   name: 'Sala Pequeña',
-  blocks: [
-    { name: 'Frontal', rowLabel: 'A', seatCount: 8 },
-    { name: 'Posterior', rowLabel: 'B', seatCount: 8 }
-  ]
+  rowsBlocks: 1,
+  columnsBlocks: 2,
+  blockConfig: { rowSeats: 4, columnsSeats: 4 }
 };
 
-const VIP: RoomLayout = {
+const VIP: RoomConfig = {
   name: 'Sala VIP',
-  blocks: [
-    { name: 'VIP Frontal', rowLabel: 'A', seatCount: 4 },
-    { name: 'VIP Posterior', rowLabel: 'B', seatCount: 6 }
-  ]
+  rowsBlocks: 1,
+  columnsBlocks: 2,
+  blockConfig: { rowSeats: 3, columnsSeats: 4 },
+  details: 'VIP room with reclining seats'
 };
 
-const PREMIUM: RoomLayout = {
+const PREMIUM: RoomConfig = {
   name: 'Sala Premium',
-  blocks: [
-    { name: 'Premium', rowLabel: 'A', seatCount: 8 },
-    { name: 'Estandar', rowLabel: 'B', seatCount: 12 },
-    { name: 'Economica', rowLabel: 'C', seatCount: 10 }
-  ]
+  rowsBlocks: 2,
+  columnsBlocks: 3,
+  blockConfig: { rowSeats: 4, columnsSeats: 5 }
 };
 
 const CINEMA_LAYOUTS: CinemaLayout[] = [
@@ -99,47 +91,54 @@ export async function seedRooms(dataSource: DataSource): Promise<void> {
 
     const cinemaId = cinemaRows[0].id;
 
-    for (const roomLayout of cinemaLayout.rooms) {
-      const totalCapacity = roomLayout.blocks.reduce(
-        (sum, b) => sum + b.seatCount,
-        0
-      );
+    for (const room of cinemaLayout.rooms) {
+      const { rowsBlocks, columnsBlocks, blockConfig, details } = room;
+      const { rowSeats, columnsSeats } = blockConfig;
 
       const roomRows = await dataSource.query<{ id: number }[]>(
-        `INSERT INTO rooms (name, capacity, cinema_id, created_at, updated_at)
-         VALUES ($1, $2, $3, now(), now())
+        `INSERT INTO rooms (name, rows_blocks, columns_blocks, details, cinema_id, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, now(), now())
          RETURNING id`,
-        [roomLayout.name, totalCapacity, cinemaId]
+        [room.name, rowsBlocks, columnsBlocks, details ?? null, cinemaId]
       );
 
       const roomId = roomRows[0].id;
+      const totalSeats = rowsBlocks * columnsBlocks * rowSeats * columnsSeats;
       console.log(
-        `  Room ensured: ${cinemaLayout.cinemaName} → ${roomLayout.name} (${totalCapacity} seats)`
+        `  Room created: ${cinemaLayout.cinemaName} -> ${room.name} (${rowsBlocks}x${columnsBlocks} blocks, ${totalSeats} seats)`
       );
 
-      for (const block of roomLayout.blocks) {
-        const blockRows = await dataSource.query<{ id: number }[]>(
-          `INSERT INTO room_blocks (name, row_label, room_id, created_at, updated_at)
-           VALUES ($1, $2, $3, now(), now())
-           RETURNING id`,
-          [block.name, block.rowLabel, roomId]
-        );
+      for (let blockRow = 0; blockRow < rowsBlocks; blockRow++) {
+        for (let blockColumn = 0; blockColumn < columnsBlocks; blockColumn++) {
+          const blockRows = await dataSource.query<{ id: number }[]>(
+            `INSERT INTO room_blocks (row_seats, columns_seats, block_row, block_column, room_id, created_at, updated_at)
+             VALUES ($1, $2, $3, $4, $5, now(), now())
+             RETURNING id`,
+            [rowSeats, columnsSeats, blockRow, blockColumn, roomId]
+          );
 
-        const blockId = blockRows[0].id;
+          const blockId = blockRows[0].id;
 
-        const seatValues = Array.from(
-          { length: block.seatCount },
-          (_, i) => `('${i + 1}', ${blockId}, now(), now())`
-        ).join(', ');
+          const seatValues: string[] = [];
+          for (let seatRow = 0; seatRow < rowSeats; seatRow++) {
+            const seatRowLabel = String.fromCharCode(65 + seatRow);
+            for (let seatColumn = 0; seatColumn < columnsSeats; seatColumn++) {
+              const seatColumnLabel = seatColumn + 1;
+              seatValues.push(
+                `('${seatRowLabel}', ${seatRow}, ${seatColumnLabel}, ${seatColumn}, ${roomId}, ${blockId}, now(), now())`
+              );
+            }
+          }
 
-        await dataSource.query(
-          `INSERT INTO room_seats (seat_number, room_block_id, created_at, updated_at)
-           VALUES ${seatValues}`
-        );
+          await dataSource.query(
+            `INSERT INTO room_seats (seat_row_label, seat_row, seat_column_label, seat_column, room_id, room_block_id, created_at, updated_at)
+             VALUES ${seatValues.join(', ')}`
+          );
 
-        console.log(
-          `    Block ${block.rowLabel} - ${block.name}: ${block.seatCount} seats inserted`
-        );
+          console.log(
+            `    Block [${blockRow},${blockColumn}]: ${rowSeats}x${columnsSeats} seats inserted`
+          );
+        }
       }
     }
   }
