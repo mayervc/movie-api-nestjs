@@ -28,7 +28,7 @@ import { RoomsModule } from './rooms/rooms.module';
         password: configService.get('DB_PASSWORD', 'stremio_pass'),
         database: configService.get('DB_DATABASE', 'stremio_db_dev'),
         entities: entities,
-        synchronize: configService.get('NODE_ENV') !== 'production',
+        synchronize: false,
         logging: configService.get('NODE_ENV') === 'development'
       }),
       inject: [ConfigService]
