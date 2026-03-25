@@ -19,8 +19,14 @@ export class Room {
   @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ type: 'integer', nullable: true })
-  capacity: number | null;
+  @Column({ name: 'rows_blocks', type: 'integer' })
+  rowsBlocks: number;
+
+  @Column({ name: 'columns_blocks', type: 'integer' })
+  columnsBlocks: number;
+
+  @Column({ type: 'text', nullable: true })
+  details: string | null;
 
   @ManyToOne(() => Cinema, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'cinema_id' })

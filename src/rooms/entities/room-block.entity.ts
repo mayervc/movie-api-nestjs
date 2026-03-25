@@ -14,11 +14,17 @@ export class RoomBlock {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column({ type: 'varchar' })
-  name: string;
+  @Column({ name: 'row_seats', type: 'integer' })
+  rowSeats: number;
 
-  @Column({ name: 'row_label', type: 'varchar', nullable: true })
-  rowLabel: string | null;
+  @Column({ name: 'columns_seats', type: 'integer' })
+  columnsSeats: number;
+
+  @Column({ name: 'block_row', type: 'integer' })
+  blockRow: number;
+
+  @Column({ name: 'block_column', type: 'integer' })
+  blockColumn: number;
 
   @ManyToOne(() => Room, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'room_id' })
