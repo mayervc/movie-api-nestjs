@@ -13,6 +13,8 @@ import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
+import { Room } from '../rooms/entities/room.entity';
+import { CreateRoomDto } from '../rooms/dto/create-room.dto';
 
 describe('CinemasService (unit)', () => {
   let service: CinemasService;
@@ -53,6 +55,16 @@ describe('CinemasService (unit)', () => {
     findOne: jest.fn()
   };
 
+  const mockRoomRepository: {
+    findOne: jest.Mock;
+    create: jest.Mock;
+    save: jest.Mock;
+  } = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn()
+  };
+
   const mockDataSource: { query: jest.Mock } = {
     query: jest.fn()
   };
@@ -70,6 +82,10 @@ describe('CinemasService (unit)', () => {
         {
           provide: getRepositoryToken(CinemaUser),
           useValue: mockCinemaUserRepository as Partial<Repository<CinemaUser>>
+        },
+        {
+          provide: getRepositoryToken(Room),
+          useValue: mockRoomRepository as Partial<Repository<Room>>
         },
         {
           provide: DataSource,
@@ -334,6 +350,98 @@ describe('CinemasService (unit)', () => {
       ).resolves.toBeUndefined();
 
       expect(mockRepository.delete).toHaveBeenCalledWith(cinemaId);
+    });
+  });
+
+  describe('createRoom', () => {
+    const cinemaId = 1;
+
+    const adminUser: User = {
+      id: 10,
+      email: 'admin@test.com',
+      password: 'password',
+      role: UserRole.ADMIN,
+      firstName: null,
+      lastName: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const regularUser: User = {
+      id: 11,
+      email: 'user@test.com',
+      password: 'password',
+      role: UserRole.USER,
+      firstName: null,
+      lastName: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const dto: CreateRoomDto = {
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2
+    };
+
+    const savedRoom: Room = {
+      id: 1,
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId,
+      cinema: null,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    it('should create room when called by ADMIN', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockRoomRepository.create.mockReturnValue(savedRoom);
+      mockRoomRepository.save.mockResolvedValue(savedRoom);
+
+      const result = await service.createRoom(cinemaId, dto, adminUser);
+
+      expect(result).toEqual(savedRoom);
+      expect(mockCinemaUserRepository.findOne).not.toHaveBeenCalled();
+      expect(mockRoomRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should create room when called by cinema owner', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockCinemaUserRepository.findOne.mockResolvedValue({
+        cinemaId,
+        userId: regularUser.id
+      } as CinemaUser);
+      mockRoomRepository.create.mockReturnValue(savedRoom);
+      mockRoomRepository.save.mockResolvedValue(savedRoom);
+
+      const result = await service.createRoom(cinemaId, dto, regularUser);
+
+      expect(result).toEqual(savedRoom);
+      expect(mockRoomRepository.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('should throw NotFoundException when cinema does not exist', async () => {
+      mockRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.createRoom(cinemaId, dto, adminUser)
+      ).rejects.toBeInstanceOf(NotFoundException);
+
+      expect(mockRoomRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException when user is not owner or ADMIN', async () => {
+      mockRepository.findOne.mockResolvedValue(cinema1);
+      mockCinemaUserRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.createRoom(cinemaId, dto, regularUser)
+      ).rejects.toBeInstanceOf(ForbiddenException);
+
+      expect(mockRoomRepository.save).not.toHaveBeenCalled();
     });
   });
 });

@@ -5,6 +5,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Cinema } from '../src/cinemas/entities/cinema.entity';
 import { CinemaUser } from '../src/cinemas/entities/cinema-user.entity';
 import { User } from '../src/users/entities/user.entity';
+import { Room } from '../src/rooms/entities/room.entity';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
 import { createAdminAndUser } from './test-auth.helper';
@@ -14,6 +15,7 @@ describe('CinemasController (e2e)', () => {
   let cinemaRepository: Repository<Cinema>;
   let cinemaUserRepository: Repository<CinemaUser>;
   let userRepository: Repository<User>;
+  let roomRepository: Repository<Room>;
   let dataSource: DataSource;
   let adminToken: string;
   let userToken: string;
@@ -29,11 +31,17 @@ describe('CinemasController (e2e)', () => {
       getRepositoryToken(CinemaUser)
     );
     userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
     dataSource = cinemaRepository.manager.connection;
   });
 
   beforeEach(async () => {
-    await truncateTables(dataSource, ['cinemas', 'users', 'cinema_users']);
+    await truncateTables(dataSource, [
+      'rooms',
+      'cinemas',
+      'users',
+      'cinema_users'
+    ]);
     const auth = await createAdminAndUser(userRepository, app);
     adminToken = auth.adminToken;
     userToken = auth.userToken;
@@ -438,6 +446,116 @@ describe('CinemasController (e2e)', () => {
         .delete('/cinemas/99999')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(404);
+    });
+  });
+
+  describe('POST /cinemas/:id/rooms', () => {
+    const validPayload = {
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2
+    };
+
+    it('should create room and return 201 when ADMIN', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Rooms' });
+
+      const res = await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(validPayload)
+        .expect(201);
+
+      expect(res.body.id).toBeDefined();
+      expect(res.body.name).toBe('Sala Estandar');
+      expect(res.body.rowsBlocks).toBe(2);
+      expect(res.body.columnsBlocks).toBe(2);
+      expect(res.body.cinemaId).toBe(cinema.id);
+
+      const rows = await roomRepository.findOne({
+        where: { id: res.body.id }
+      });
+      expect(rows).not.toBeNull();
+    });
+
+    it('should create room and return 201 when cinema owner', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Owner Rooms'
+      });
+      await cinemaUserRepository.save(
+        cinemaUserRepository.create({
+          cinemaId: cinema.id,
+          userId: regularUserId
+        })
+      );
+
+      const res = await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(validPayload)
+        .expect(201);
+
+      expect(res.body.cinemaId).toBe(cinema.id);
+    });
+
+    it('should create room with optional details', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Details' });
+
+      const res = await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ ...validPayload, details: 'VIP room' })
+        .expect(201);
+
+      expect(res.body.details).toBe('VIP room');
+    });
+
+    it('should return 403 when user is not ADMIN or cinema owner', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Forbidden' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send(validPayload)
+        .expect(403);
+    });
+
+    it('should return 401 when not authenticated', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Unauth' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .send(validPayload)
+        .expect(401);
+    });
+
+    it('should return 404 when cinema does not exist', async () => {
+      await request(app.getHttpServer())
+        .post('/cinemas/99999/rooms')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send(validPayload)
+        .expect(404);
+    });
+
+    it('should return 400 when name is missing', async () => {
+      const cinema = await cinemaRepository.save({ name: 'Cinema Validation' });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ rowsBlocks: 2, columnsBlocks: 2 })
+        .expect(400);
+    });
+
+    it('should return 400 when rowsBlocks is less than 1', async () => {
+      const cinema = await cinemaRepository.save({
+        name: 'Cinema Validation 2'
+      });
+
+      await request(app.getHttpServer())
+        .post(`/cinemas/${cinema.id}/rooms`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ name: 'Sala', rowsBlocks: 0, columnsBlocks: 2 })
+        .expect(400);
     });
   });
 });

@@ -13,6 +13,8 @@ import { UpdateCinemaDto } from './dto/update-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
+import { Room } from '../rooms/entities/room.entity';
+import { CreateRoomDto } from '../rooms/dto/create-room.dto';
 
 @Injectable()
 export class CinemasService {
@@ -21,6 +23,8 @@ export class CinemasService {
     private readonly cinemasRepository: Repository<Cinema>,
     @InjectRepository(CinemaUser)
     private readonly cinemaUsersRepository: Repository<CinemaUser>,
+    @InjectRepository(Room)
+    private readonly roomsRepository: Repository<Room>,
     private readonly dataSource: DataSource
   ) {}
 
@@ -187,6 +191,36 @@ export class CinemasService {
       }
       throw error;
     }
+  }
+
+  async createRoom(
+    cinemaId: number,
+    dto: CreateRoomDto,
+    currentUser: User
+  ): Promise<Room> {
+    await this.findOne(cinemaId);
+
+    const isAdmin = currentUser.role === UserRole.ADMIN;
+    if (!isAdmin) {
+      const ownerLink = await this.cinemaUsersRepository.findOne({
+        where: { cinemaId, userId: currentUser.id }
+      });
+      if (!ownerLink) {
+        throw new ForbiddenException(
+          'Not allowed to create rooms for this cinema'
+        );
+      }
+    }
+
+    const room = this.roomsRepository.create({
+      name: dto.name,
+      rowsBlocks: dto.rowsBlocks,
+      columnsBlocks: dto.columnsBlocks,
+      details: dto.details ?? null,
+      cinemaId
+    });
+
+    return this.roomsRepository.save(room);
   }
 
   async deleteCinema(cinemaId: number, currentUser: User): Promise<void> {

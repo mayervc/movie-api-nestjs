@@ -25,6 +25,7 @@ import { CinemasService } from './cinemas.service';
 import { CreateCinemaDto } from './dto/create-cinema.dto';
 import { LinkCinemaUserDto } from './dto/link-cinema-user.dto';
 import { UpdateCinemaDto } from './dto/update-cinema.dto';
+import { CreateRoomDto } from '../rooms/dto/create-room.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { User } from '../users/entities/user.entity';
@@ -122,6 +123,26 @@ export class CinemasController {
     @Body() linkCinemaUserDto: LinkCinemaUserDto
   ) {
     return this.cinemasService.linkUserToCinema(cinemaId, linkCinemaUserDto);
+  }
+
+  @Post(':id/rooms')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a room under a cinema' })
+  @ApiResponse({ status: 201, description: 'Room created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Cinema not found' })
+  createRoom(
+    @Param('id', ParseIntPipe) cinemaId: number,
+    @Body() createRoomDto: CreateRoomDto,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.cinemasService.createRoom(cinemaId, createRoomDto, currentUser);
   }
 
   @Delete(':id')
