@@ -6,8 +6,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room } from './entities/room.entity';
+import { RoomBlock } from './entities/room-block.entity';
 import { CinemasService } from '../cinemas/cinemas.service';
 import { UpdateRoomDto } from './dto/update-room.dto';
+import { CreateRoomBlockDto } from './dto/create-room-block.dto';
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
@@ -15,6 +17,8 @@ export class RoomsService {
   constructor(
     @InjectRepository(Room)
     private readonly roomsRepository: Repository<Room>,
+    @InjectRepository(RoomBlock)
+    private readonly roomBlocksRepository: Repository<RoomBlock>,
     private readonly cinemasService: CinemasService
   ) {}
 
@@ -55,5 +59,21 @@ export class RoomsService {
     );
 
     await this.roomsRepository.delete(id);
+  }
+
+  async createBlock(
+    roomId: number,
+    dto: CreateRoomBlockDto,
+    currentUser: User
+  ): Promise<RoomBlock> {
+    const room = await this.findOne(roomId);
+
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    const block = this.roomBlocksRepository.create({ ...dto, roomId });
+    return this.roomBlocksRepository.save(block);
   }
 }

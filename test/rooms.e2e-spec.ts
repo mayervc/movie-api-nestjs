@@ -348,3 +348,152 @@ describe('DELETE /rooms/:id', () => {
       .expect(404);
   });
 });
+
+describe('POST /rooms/:roomId/blocks', () => {
+  let app: INestApplication;
+  let roomRepository: Repository<Room>;
+  let cinemaRepository: Repository<Cinema>;
+  let cinemaUserRepository: Repository<CinemaUser>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let adminToken: string;
+  let userToken: string;
+  let regularUserId: number;
+  let cinemaId: number;
+
+  const validPayload = {
+    rowSeats: 5,
+    columnsSeats: 8,
+    blockRow: 1,
+    blockColumn: 1
+  };
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
+      getRepositoryToken(CinemaUser)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = roomRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'room_blocks',
+      'rooms',
+      'cinemas',
+      'users',
+      'cinema_users'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    regularUserId = auth.regularUser.id;
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    cinemaId = cinema.id;
+  });
+
+  it('should return 201 with created block when called by ADMIN', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    const res = await request(app.getHttpServer())
+      .post(`/rooms/${room.id}/blocks`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(validPayload)
+      .expect(201);
+
+    expect(res.body.id).toBeDefined();
+    expect(res.body.rowSeats).toBe(5);
+    expect(res.body.columnsSeats).toBe(8);
+    expect(res.body.blockRow).toBe(1);
+    expect(res.body.blockColumn).toBe(1);
+    expect(res.body.roomId).toBe(room.id);
+  });
+
+  it('should return 201 when called by cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    await cinemaUserRepository.save(
+      cinemaUserRepository.create({ cinemaId, userId: regularUserId })
+    );
+
+    const res = await request(app.getHttpServer())
+      .post(`/rooms/${room.id}/blocks`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(validPayload)
+      .expect(201);
+
+    expect(res.body.roomId).toBe(room.id);
+  });
+
+  it('should return 403 when user is not ADMIN or cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer())
+      .post(`/rooms/${room.id}/blocks`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send(validPayload)
+      .expect(403);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer())
+      .post(`/rooms/${room.id}/blocks`)
+      .send(validPayload)
+      .expect(401);
+  });
+
+  it('should return 404 when room does not exist', async () => {
+    await request(app.getHttpServer())
+      .post('/rooms/99999/blocks')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send(validPayload)
+      .expect(404);
+  });
+
+  it('should return 400 when validation fails', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer())
+      .post(`/rooms/${room.id}/blocks`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ rowSeats: -1, columnsSeats: 8, blockRow: 1, blockColumn: 1 })
+      .expect(400);
+  });
+});
