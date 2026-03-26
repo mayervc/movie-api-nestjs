@@ -1,7 +1,10 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
+  HttpStatus,
   Param,
   ParseIntPipe,
   Patch
@@ -49,5 +52,23 @@ export class RoomsController {
     @CurrentUser() currentUser: User
   ) {
     return this.roomsService.update(id, updateRoomDto, currentUser);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete room by ID' })
+  @ApiResponse({ status: 204, description: 'Room deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Room not found' })
+  delete(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.roomsService.delete(id, currentUser);
   }
 }

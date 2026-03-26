@@ -233,3 +233,118 @@ describe('PATCH /rooms/:id', () => {
       .expect(400);
   });
 });
+
+describe('DELETE /rooms/:id', () => {
+  let app: INestApplication;
+  let roomRepository: Repository<Room>;
+  let cinemaRepository: Repository<Cinema>;
+  let cinemaUserRepository: Repository<CinemaUser>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let adminToken: string;
+  let userToken: string;
+  let regularUserId: number;
+  let cinemaId: number;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
+      getRepositoryToken(CinemaUser)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = roomRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'rooms',
+      'cinemas',
+      'users',
+      'cinema_users'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    regularUserId = auth.regularUser.id;
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    cinemaId = cinema.id;
+  });
+
+  it('should return 204 when called by ADMIN', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/rooms/${room.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(204);
+
+    const deleted = await roomRepository.findOne({ where: { id: room.id } });
+    expect(deleted).toBeNull();
+  });
+
+  it('should return 204 when called by cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    await cinemaUserRepository.save(
+      cinemaUserRepository.create({ cinemaId, userId: regularUserId })
+    );
+
+    await request(app.getHttpServer())
+      .delete(`/rooms/${room.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(204);
+
+    const deleted = await roomRepository.findOne({ where: { id: room.id } });
+    expect(deleted).toBeNull();
+  });
+
+  it('should return 403 when user is not ADMIN or cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer())
+      .delete(`/rooms/${room.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+
+    await request(app.getHttpServer()).delete(`/rooms/${room.id}`).expect(401);
+  });
+
+  it('should return 404 when room does not exist', async () => {
+    await request(app.getHttpServer())
+      .delete('/rooms/99999')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+});

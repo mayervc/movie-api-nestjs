@@ -26,9 +26,14 @@ describe('RoomsService (unit)', () => {
     updatedAt: new Date()
   };
 
-  const mockRoomsRepository: { findOne: jest.Mock; save: jest.Mock } = {
+  const mockRoomsRepository: {
+    findOne: jest.Mock;
+    save: jest.Mock;
+    delete: jest.Mock;
+  } = {
     findOne: jest.fn(),
-    save: jest.fn()
+    save: jest.fn(),
+    delete: jest.fn()
   };
 
   const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
@@ -136,6 +141,62 @@ describe('RoomsService (unit)', () => {
         new BadRequestException('Request body cannot be empty')
       );
       expect(mockRoomsRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete', () => {
+    const adminUser = { id: 1, role: UserRole.ADMIN } as User;
+    const ownerUser = { id: 2, role: UserRole.VENDOR } as User;
+    const otherUser = { id: 3, role: UserRole.USER } as User;
+
+    it('should delete the room when called by ADMIN', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomsRepository.delete.mockResolvedValue({ affected: 1 });
+
+      await service.delete(1, adminUser);
+
+      expect(mockRoomsRepository.delete).toHaveBeenCalledWith(1);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
+    });
+
+    it('should delete the room when called by cinema owner', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomsRepository.delete.mockResolvedValue({ affected: 1 });
+
+      await service.delete(1, ownerUser);
+
+      expect(mockRoomsRepository.delete).toHaveBeenCalledWith(1);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
+    });
+
+    it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
+
+      await expect(service.delete(1, otherUser)).rejects.toThrow(
+        ForbiddenException
+      );
+      expect(mockRoomsRepository.delete).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when room does not exist', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.delete(99, adminUser)).rejects.toThrow(
+        new NotFoundException('Room with ID 99 not found')
+      );
     });
   });
 });

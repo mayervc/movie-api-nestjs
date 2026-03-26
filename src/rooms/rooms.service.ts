@@ -1,8 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException
-} from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room } from './entities/room.entity';
@@ -44,5 +40,16 @@ export class RoomsService {
 
     Object.assign(room, dto);
     return this.roomsRepository.save(room);
+  }
+
+  async delete(id: number, currentUser: User): Promise<void> {
+    const room = await this.findOne(id);
+
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    await this.roomsRepository.delete(id);
   }
 }
