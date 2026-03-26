@@ -193,6 +193,21 @@ export class CinemasService {
     }
   }
 
+  async assertCinemaOwnerOrAdmin(
+    cinemaId: number,
+    currentUser: User
+  ): Promise<void> {
+    if (currentUser.role === UserRole.ADMIN) return;
+    const ownerLink = await this.cinemaUsersRepository.findOne({
+      where: { cinemaId, userId: currentUser.id }
+    });
+    if (!ownerLink) {
+      throw new ForbiddenException(
+        'Not allowed to perform this action on this cinema'
+      );
+    }
+  }
+
   async createRoom(
     cinemaId: number,
     dto: CreateRoomDto,
@@ -200,17 +215,7 @@ export class CinemasService {
   ): Promise<Room> {
     await this.findOne(cinemaId);
 
-    const isAdmin = currentUser.role === UserRole.ADMIN;
-    if (!isAdmin) {
-      const ownerLink = await this.cinemaUsersRepository.findOne({
-        where: { cinemaId, userId: currentUser.id }
-      });
-      if (!ownerLink) {
-        throw new ForbiddenException(
-          'Not allowed to create rooms for this cinema'
-        );
-      }
-    }
+    await this.assertCinemaOwnerOrAdmin(cinemaId, currentUser);
 
     const room = this.roomsRepository.create({
       name: dto.name,
@@ -232,16 +237,7 @@ export class CinemasService {
       throw new NotFoundException(`Cinema with ID ${cinemaId} not found`);
     }
 
-    const isAdmin = currentUser.role === UserRole.ADMIN;
-    if (!isAdmin) {
-      const ownerLink = await this.cinemaUsersRepository.findOne({
-        where: { cinemaId, userId: currentUser.id }
-      });
-
-      if (!ownerLink) {
-        throw new ForbiddenException('Not allowed to delete this cinema');
-      }
-    }
+    await this.assertCinemaOwnerOrAdmin(cinemaId, currentUser);
 
     await this.cinemasRepository.delete(cinemaId);
   }
