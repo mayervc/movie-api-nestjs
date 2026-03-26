@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { Room } from './entities/room.entity';
-import { CinemaUser } from '../cinemas/entities/cinema-user.entity';
+import { CinemasService } from '../cinemas/cinemas.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { User } from '../users/entities/user.entity';
 
@@ -31,8 +31,8 @@ describe('RoomsService (unit)', () => {
     save: jest.fn()
   };
 
-  const mockCinemaUsersRepository: { findOne: jest.Mock } = {
-    findOne: jest.fn()
+  const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
+    assertCinemaOwnerOrAdmin: jest.fn()
   };
 
   beforeEach(async () => {
@@ -44,8 +44,8 @@ describe('RoomsService (unit)', () => {
           useValue: mockRoomsRepository
         },
         {
-          provide: getRepositoryToken(CinemaUser),
-          useValue: mockCinemaUsersRepository
+          provide: CinemasService,
+          useValue: mockCinemasService
         }
       ]
     }).compile();
@@ -83,41 +83,44 @@ describe('RoomsService (unit)', () => {
     it('should update and return the room when called by ADMIN', async () => {
       const updated = { ...mockRoom, name: 'Sala VIP' };
       mockRoomsRepository.findOne.mockResolvedValue({ ...mockRoom });
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
       mockRoomsRepository.save.mockResolvedValue(updated);
 
       const result = await service.update(1, { name: 'Sala VIP' }, adminUser);
 
       expect(result.name).toBe('Sala VIP');
-      expect(mockCinemaUsersRepository.findOne).not.toHaveBeenCalled();
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
     });
 
     it('should update and return the room when called by cinema owner', async () => {
       const updated = { ...mockRoom, name: 'Sala VIP' };
       mockRoomsRepository.findOne.mockResolvedValue({ ...mockRoom });
-      mockCinemaUsersRepository.findOne.mockResolvedValue({
-        id: 5,
-        cinemaId: 10,
-        userId: 2
-      });
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
       mockRoomsRepository.save.mockResolvedValue(updated);
 
       const result = await service.update(1, { name: 'Sala VIP' }, ownerUser);
 
       expect(result.name).toBe('Sala VIP');
-      expect(mockCinemaUsersRepository.findOne).toHaveBeenCalledWith({
-        where: { cinemaId: mockRoom.cinemaId, userId: ownerUser.id }
-      });
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
     });
 
     it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
       mockRoomsRepository.findOne.mockResolvedValue({ ...mockRoom });
-      mockCinemaUsersRepository.findOne.mockResolvedValue(null);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
 
       await expect(
         service.update(1, { name: 'Sala VIP' }, otherUser)
-      ).rejects.toThrow(
-        new ForbiddenException('Not allowed to update this room')
-      );
+      ).rejects.toThrow(ForbiddenException);
     });
 
     it('should throw NotFoundException when room does not exist', async () => {

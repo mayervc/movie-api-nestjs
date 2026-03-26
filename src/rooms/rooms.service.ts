@@ -1,24 +1,21 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room } from './entities/room.entity';
-import { CinemaUser } from '../cinemas/entities/cinema-user.entity';
+import { CinemasService } from '../cinemas/cinemas.service';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { User } from '../users/entities/user.entity';
-import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class RoomsService {
   constructor(
     @InjectRepository(Room)
     private readonly roomsRepository: Repository<Room>,
-    @InjectRepository(CinemaUser)
-    private readonly cinemaUsersRepository: Repository<CinemaUser>
+    private readonly cinemasService: CinemasService
   ) {}
 
   async findOne(id: number): Promise<Room> {
@@ -40,15 +37,10 @@ export class RoomsService {
 
     const room = await this.findOne(id);
 
-    const isAdmin = currentUser.role === UserRole.ADMIN;
-    if (!isAdmin) {
-      const ownerLink = await this.cinemaUsersRepository.findOne({
-        where: { cinemaId: room.cinemaId, userId: currentUser.id }
-      });
-      if (!ownerLink) {
-        throw new ForbiddenException('Not allowed to update this room');
-      }
-    }
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
 
     Object.assign(room, dto);
     return this.roomsRepository.save(room);
