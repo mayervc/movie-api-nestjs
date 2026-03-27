@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   HttpCode,
   HttpStatus,
   Param,
@@ -42,6 +43,24 @@ export class RoomBlocksController {
     @CurrentUser() currentUser: User
   ) {
     return this.roomsService.updateBlock(id, updateRoomBlockDto, currentUser);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete room block by ID' })
+  @ApiResponse({ status: 204, description: 'Room block deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Room block not found' })
+  deleteBlock(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.roomsService.deleteBlock(id, currentUser);
   }
 
   @Post(':blockId/seats')
