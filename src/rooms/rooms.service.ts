@@ -95,6 +95,18 @@ export class RoomsService {
     return this.roomBlocksRepository.save(block);
   }
 
+  async deleteBlock(id: number, currentUser: User): Promise<void> {
+    const block = await this.findOneBlock(id);
+    const room = await this.findOne(block.roomId);
+
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    await this.roomBlocksRepository.delete(id);
+  }
+
   async createSeat(
     blockId: number,
     dto: CreateRoomSeatDto,
