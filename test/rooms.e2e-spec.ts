@@ -3,6 +3,7 @@ import * as request from 'supertest';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Room } from '../src/rooms/entities/room.entity';
+import { RoomBlock } from '../src/rooms/entities/room-block.entity';
 import { Cinema } from '../src/cinemas/entities/cinema.entity';
 import { CinemaUser } from '../src/cinemas/entities/cinema-user.entity';
 import { User } from '../src/users/entities/user.entity';
@@ -494,6 +495,207 @@ describe('POST /rooms/:roomId/blocks', () => {
       .post(`/rooms/${room.id}/blocks`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ rowSeats: -1, columnsSeats: 8, blockRow: 1, blockColumn: 1 })
+      .expect(400);
+  });
+});
+
+describe('PATCH /room-blocks/:id', () => {
+  let app: INestApplication;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let cinemaRepository: Repository<Cinema>;
+  let cinemaUserRepository: Repository<CinemaUser>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let adminToken: string;
+  let userToken: string;
+  let regularUserId: number;
+  let cinemaId: number;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    cinemaUserRepository = testModule.get<Repository<CinemaUser>>(
+      getRepositoryToken(CinemaUser)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = roomRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'room_blocks',
+      'rooms',
+      'cinemas',
+      'users',
+      'cinema_users'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    regularUserId = auth.regularUser.id;
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    cinemaId = cinema.id;
+  });
+
+  it('should return 200 with updated block when called by ADMIN', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    const res = await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ rowSeats: 10 })
+      .expect(200);
+
+    expect(res.body.id).toBe(block.id);
+    expect(res.body.rowSeats).toBe(10);
+    expect(res.body.columnsSeats).toBe(8);
+  });
+
+  it('should return 200 with updated block when called by cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    await cinemaUserRepository.save(
+      cinemaUserRepository.create({ cinemaId, userId: regularUserId })
+    );
+
+    const res = await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ columnsSeats: 12 })
+      .expect(200);
+
+    expect(res.body.columnsSeats).toBe(12);
+  });
+
+  it('should return 403 when user is not ADMIN or cinema owner', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ rowSeats: 10 })
+      .expect(403);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .send({ rowSeats: 10 })
+      .expect(401);
+  });
+
+  it('should return 404 when block does not exist', async () => {
+    await request(app.getHttpServer())
+      .patch('/room-blocks/99999')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ rowSeats: 10 })
+      .expect(404);
+  });
+
+  it('should return 400 when body is empty', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('should return 400 when validation fails', async () => {
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    await request(app.getHttpServer())
+      .patch(`/room-blocks/${block.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ rowSeats: -1 })
       .expect(400);
   });
 });
