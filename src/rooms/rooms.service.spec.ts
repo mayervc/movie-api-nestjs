@@ -37,9 +37,14 @@ describe('RoomsService (unit)', () => {
     delete: jest.fn()
   };
 
-  const mockRoomBlocksRepository: { create: jest.Mock; save: jest.Mock } = {
+  const mockRoomBlocksRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+  } = {
     create: jest.fn(),
-    save: jest.fn()
+    save: jest.fn(),
+    findOne: jest.fn()
   };
 
   const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
@@ -207,6 +212,114 @@ describe('RoomsService (unit)', () => {
       await expect(service.delete(99, adminUser)).rejects.toThrow(
         new NotFoundException('Room with ID 99 not found')
       );
+    });
+  });
+
+  describe('findOneBlock', () => {
+    const mockBlock = {
+      id: 1,
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: 1
+    } as RoomBlock;
+
+    it('should return the block when it exists', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+
+      const result = await service.findOneBlock(1);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockRoomBlocksRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 }
+      });
+    });
+
+    it('should throw NotFoundException when block does not exist', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOneBlock(99)).rejects.toThrow(
+        new NotFoundException('RoomBlock with ID 99 not found')
+      );
+    });
+  });
+
+  describe('updateBlock', () => {
+    const adminUser = { id: 1, role: UserRole.ADMIN } as User;
+    const ownerUser = { id: 2, role: UserRole.VENDOR } as User;
+    const otherUser = { id: 3, role: UserRole.USER } as User;
+    const mockBlock = {
+      id: 1,
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: 1
+    } as RoomBlock;
+
+    it('should update and return the block when called by ADMIN', async () => {
+      const updated = { ...mockBlock, rowSeats: 10 };
+      mockRoomBlocksRepository.findOne.mockResolvedValue({ ...mockBlock });
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomBlocksRepository.save.mockResolvedValue(updated);
+
+      const result = await service.updateBlock(1, { rowSeats: 10 }, adminUser);
+
+      expect(result.rowSeats).toBe(10);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
+    });
+
+    it('should update and return the block when called by cinema owner', async () => {
+      const updated = { ...mockBlock, rowSeats: 10 };
+      mockRoomBlocksRepository.findOne.mockResolvedValue({ ...mockBlock });
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomBlocksRepository.save.mockResolvedValue(updated);
+
+      const result = await service.updateBlock(1, { rowSeats: 10 }, ownerUser);
+
+      expect(result.rowSeats).toBe(10);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
+    });
+
+    it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue({ ...mockBlock });
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
+
+      await expect(
+        service.updateBlock(1, { rowSeats: 10 }, otherUser)
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockRoomBlocksRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when block does not exist', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateBlock(99, { rowSeats: 10 }, adminUser)
+      ).rejects.toThrow(
+        new NotFoundException('RoomBlock with ID 99 not found')
+      );
+    });
+
+    it('should throw BadRequestException when body is empty', async () => {
+      await expect(service.updateBlock(1, {}, adminUser)).rejects.toThrow(
+        new BadRequestException('Request body cannot be empty')
+      );
+      expect(mockRoomBlocksRepository.findOne).not.toHaveBeenCalled();
     });
   });
 
