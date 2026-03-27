@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { RoomsService } from './rooms.service';
 import { Room } from './entities/room.entity';
+import { RoomBlock } from './entities/room-block.entity';
 import { CinemasService } from '../cinemas/cinemas.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { User } from '../users/entities/user.entity';
@@ -36,6 +37,11 @@ describe('RoomsService (unit)', () => {
     delete: jest.fn()
   };
 
+  const mockRoomBlocksRepository: { create: jest.Mock; save: jest.Mock } = {
+    create: jest.fn(),
+    save: jest.fn()
+  };
+
   const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
     assertCinemaOwnerOrAdmin: jest.fn()
   };
@@ -47,6 +53,10 @@ describe('RoomsService (unit)', () => {
         {
           provide: getRepositoryToken(Room),
           useValue: mockRoomsRepository
+        },
+        {
+          provide: getRepositoryToken(RoomBlock),
+          useValue: mockRoomBlocksRepository
         },
         {
           provide: CinemasService,
@@ -197,6 +207,75 @@ describe('RoomsService (unit)', () => {
       await expect(service.delete(99, adminUser)).rejects.toThrow(
         new NotFoundException('Room with ID 99 not found')
       );
+    });
+  });
+
+  describe('createBlock', () => {
+    const adminUser = { id: 1, role: UserRole.ADMIN } as User;
+    const ownerUser = { id: 2, role: UserRole.VENDOR } as User;
+    const otherUser = { id: 3, role: UserRole.USER } as User;
+    const validDto = {
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1
+    };
+    const mockBlock = { id: 1, ...validDto, roomId: 1 } as RoomBlock;
+
+    it('should create and return the block when called by ADMIN', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomBlocksRepository.create.mockReturnValue(mockBlock);
+      mockRoomBlocksRepository.save.mockResolvedValue(mockBlock);
+
+      const result = await service.createBlock(1, validDto, adminUser);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
+      expect(mockRoomBlocksRepository.create).toHaveBeenCalledWith({
+        ...validDto,
+        roomId: 1
+      });
+    });
+
+    it('should create and return the block when called by cinema owner', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomBlocksRepository.create.mockReturnValue(mockBlock);
+      mockRoomBlocksRepository.save.mockResolvedValue(mockBlock);
+
+      const result = await service.createBlock(1, validDto, ownerUser);
+
+      expect(result).toEqual(mockBlock);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
+    });
+
+    it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
+
+      await expect(service.createBlock(1, validDto, otherUser)).rejects.toThrow(
+        ForbiddenException
+      );
+      expect(mockRoomBlocksRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when room does not exist', async () => {
+      mockRoomsRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.createBlock(99, validDto, adminUser)
+      ).rejects.toThrow(new NotFoundException('Room with ID 99 not found'));
     });
   });
 });
