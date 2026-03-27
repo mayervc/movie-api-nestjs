@@ -1,4 +1,13 @@
-import { Body, Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Patch,
+  Post
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -8,6 +17,7 @@ import {
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RoomsService } from './rooms.service';
 import { UpdateRoomBlockDto } from './dto/update-room-block.dto';
+import { CreateRoomSeatDto } from './dto/create-room-seat.dto';
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('room-blocks')
@@ -32,5 +42,29 @@ export class RoomBlocksController {
     @CurrentUser() currentUser: User
   ) {
     return this.roomsService.updateBlock(id, updateRoomBlockDto, currentUser);
+  }
+
+  @Post(':blockId/seats')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Create a seat inside a room block' })
+  @ApiResponse({ status: 201, description: 'Room seat created successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Room block not found' })
+  createSeat(
+    @Param('blockId', ParseIntPipe) blockId: number,
+    @Body() createRoomSeatDto: CreateRoomSeatDto,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.roomsService.createSeat(
+      blockId,
+      createRoomSeatDto,
+      currentUser
+    );
   }
 }
