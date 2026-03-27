@@ -13,6 +13,7 @@ import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomBlockDto } from './dto/create-room-block.dto';
 import { UpdateRoomBlockDto } from './dto/update-room-block.dto';
 import { CreateRoomSeatDto } from './dto/create-room-seat.dto';
+import { UpdateRoomSeatDto } from './dto/update-room-seat.dto';
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
@@ -105,6 +106,36 @@ export class RoomsService {
     );
 
     await this.roomBlocksRepository.delete(id);
+  }
+
+  async findOneSeat(id: number): Promise<RoomSeat> {
+    const seat = await this.roomSeatsRepository.findOne({ where: { id } });
+    if (!seat) {
+      throw new NotFoundException(`RoomSeat with ID ${id} not found`);
+    }
+    return seat;
+  }
+
+  async updateSeat(
+    id: number,
+    dto: UpdateRoomSeatDto,
+    currentUser: User
+  ): Promise<RoomSeat> {
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('Request body cannot be empty');
+    }
+
+    const seat = await this.findOneSeat(id);
+    const block = await this.findOneBlock(seat.roomBlockId);
+    const room = await this.findOne(block.roomId);
+
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    Object.assign(seat, dto);
+    return this.roomSeatsRepository.save(seat);
   }
 
   async createSeat(

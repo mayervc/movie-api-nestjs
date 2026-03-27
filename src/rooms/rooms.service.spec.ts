@@ -50,9 +50,14 @@ describe('RoomsService (unit)', () => {
     delete: jest.fn()
   };
 
-  const mockRoomSeatsRepository: { create: jest.Mock; save: jest.Mock } = {
+  const mockRoomSeatsRepository: {
+    create: jest.Mock;
+    save: jest.Mock;
+    findOne: jest.Mock;
+  } = {
     create: jest.fn(),
-    save: jest.fn()
+    save: jest.fn(),
+    findOne: jest.fn()
   };
 
   const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
@@ -399,6 +404,133 @@ describe('RoomsService (unit)', () => {
       await expect(service.deleteBlock(99, adminUser)).rejects.toThrow(
         new NotFoundException('RoomBlock with ID 99 not found')
       );
+    });
+  });
+
+  describe('findOneSeat', () => {
+    const mockSeat = {
+      id: 1,
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: 1,
+      roomBlockId: 1
+    } as RoomSeat;
+
+    it('should return the seat when it exists', async () => {
+      mockRoomSeatsRepository.findOne.mockResolvedValue(mockSeat);
+
+      const result = await service.findOneSeat(1);
+
+      expect(result).toEqual(mockSeat);
+      expect(mockRoomSeatsRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 1 }
+      });
+    });
+
+    it('should throw NotFoundException when seat does not exist', async () => {
+      mockRoomSeatsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOneSeat(99)).rejects.toThrow(
+        new NotFoundException('RoomSeat with ID 99 not found')
+      );
+    });
+  });
+
+  describe('updateSeat', () => {
+    const adminUser = { id: 1, role: UserRole.ADMIN } as User;
+    const ownerUser = { id: 2, role: UserRole.VENDOR } as User;
+    const otherUser = { id: 3, role: UserRole.USER } as User;
+    const mockBlock = {
+      id: 1,
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: 1
+    } as RoomBlock;
+    const mockSeat = {
+      id: 1,
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: 1,
+      roomBlockId: 1
+    } as RoomSeat;
+
+    it('should update and return the seat when called by ADMIN', async () => {
+      const updated = { ...mockSeat, seatRowLabel: 'B' };
+      mockRoomSeatsRepository.findOne.mockResolvedValue({ ...mockSeat });
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomSeatsRepository.save.mockResolvedValue(updated);
+
+      const result = await service.updateSeat(
+        1,
+        { seatRowLabel: 'B' },
+        adminUser
+      );
+
+      expect(result.seatRowLabel).toBe('B');
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
+    });
+
+    it('should update and return the seat when called by cinema owner', async () => {
+      const updated = { ...mockSeat, seatRowLabel: 'B' };
+      mockRoomSeatsRepository.findOne.mockResolvedValue({ ...mockSeat });
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomSeatsRepository.save.mockResolvedValue(updated);
+
+      const result = await service.updateSeat(
+        1,
+        { seatRowLabel: 'B' },
+        ownerUser
+      );
+
+      expect(result.seatRowLabel).toBe('B');
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
+    });
+
+    it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
+      mockRoomSeatsRepository.findOne.mockResolvedValue({ ...mockSeat });
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
+
+      await expect(
+        service.updateSeat(1, { seatRowLabel: 'B' }, otherUser)
+      ).rejects.toThrow(ForbiddenException);
+      expect(mockRoomSeatsRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when seat does not exist', async () => {
+      mockRoomSeatsRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.updateSeat(99, { seatRowLabel: 'B' }, adminUser)
+      ).rejects.toThrow(new NotFoundException('RoomSeat with ID 99 not found'));
+    });
+
+    it('should throw BadRequestException when body is empty', async () => {
+      await expect(service.updateSeat(1, {}, adminUser)).rejects.toThrow(
+        new BadRequestException('Request body cannot be empty')
+      );
+      expect(mockRoomSeatsRepository.findOne).not.toHaveBeenCalled();
     });
   });
 

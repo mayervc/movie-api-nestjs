@@ -6,6 +6,7 @@ import { RoomSeat } from './entities/room-seat.entity';
 import { CinemasModule } from '../cinemas/cinemas.module';
 import { RoomsController } from './rooms.controller';
 import { RoomBlocksController } from './room-blocks.controller';
+import { RoomSeatsController } from './room-seats.controller';
 import { RoomsService } from './rooms.service';
 
 @Module({
@@ -13,7 +14,7 @@ import { RoomsService } from './rooms.service';
     TypeOrmModule.forFeature([Room, RoomBlock, RoomSeat]),
     CinemasModule
   ],
-  controllers: [RoomsController, RoomBlocksController],
+  controllers: [RoomsController, RoomBlocksController, RoomSeatsController],
   providers: [RoomsService],
   exports: [RoomsService]
 })
