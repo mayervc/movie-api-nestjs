@@ -7,10 +7,12 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Room } from './entities/room.entity';
 import { RoomBlock } from './entities/room-block.entity';
+import { RoomSeat } from './entities/room-seat.entity';
 import { CinemasService } from '../cinemas/cinemas.service';
 import { UpdateRoomDto } from './dto/update-room.dto';
 import { CreateRoomBlockDto } from './dto/create-room-block.dto';
 import { UpdateRoomBlockDto } from './dto/update-room-block.dto';
+import { CreateRoomSeatDto } from './dto/create-room-seat.dto';
 import { User } from '../users/entities/user.entity';
 
 @Injectable()
@@ -20,6 +22,8 @@ export class RoomsService {
     private readonly roomsRepository: Repository<Room>,
     @InjectRepository(RoomBlock)
     private readonly roomBlocksRepository: Repository<RoomBlock>,
+    @InjectRepository(RoomSeat)
+    private readonly roomSeatsRepository: Repository<RoomSeat>,
     private readonly cinemasService: CinemasService
   ) {}
 
@@ -89,6 +93,26 @@ export class RoomsService {
 
     Object.assign(block, dto);
     return this.roomBlocksRepository.save(block);
+  }
+
+  async createSeat(
+    blockId: number,
+    dto: CreateRoomSeatDto,
+    currentUser: User
+  ): Promise<RoomSeat> {
+    const block = await this.findOneBlock(blockId);
+    const room = await this.findOne(block.roomId);
+
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    const seat = this.roomSeatsRepository.create({
+      ...dto,
+      roomBlockId: blockId
+    });
+    return this.roomSeatsRepository.save(seat);
   }
 
   async createBlock(

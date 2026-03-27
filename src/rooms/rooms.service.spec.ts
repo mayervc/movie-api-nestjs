@@ -8,6 +8,7 @@ import {
 import { RoomsService } from './rooms.service';
 import { Room } from './entities/room.entity';
 import { RoomBlock } from './entities/room-block.entity';
+import { RoomSeat } from './entities/room-seat.entity';
 import { CinemasService } from '../cinemas/cinemas.service';
 import { UserRole } from '../users/enums/user-role.enum';
 import { User } from '../users/entities/user.entity';
@@ -47,6 +48,11 @@ describe('RoomsService (unit)', () => {
     findOne: jest.fn()
   };
 
+  const mockRoomSeatsRepository: { create: jest.Mock; save: jest.Mock } = {
+    create: jest.fn(),
+    save: jest.fn()
+  };
+
   const mockCinemasService: { assertCinemaOwnerOrAdmin: jest.Mock } = {
     assertCinemaOwnerOrAdmin: jest.fn()
   };
@@ -62,6 +68,10 @@ describe('RoomsService (unit)', () => {
         {
           provide: getRepositoryToken(RoomBlock),
           useValue: mockRoomBlocksRepository
+        },
+        {
+          provide: getRepositoryToken(RoomSeat),
+          useValue: mockRoomSeatsRepository
         },
         {
           provide: CinemasService,
@@ -320,6 +330,87 @@ describe('RoomsService (unit)', () => {
         new BadRequestException('Request body cannot be empty')
       );
       expect(mockRoomBlocksRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createSeat', () => {
+    const adminUser = { id: 1, role: UserRole.ADMIN } as User;
+    const ownerUser = { id: 2, role: UserRole.VENDOR } as User;
+    const otherUser = { id: 3, role: UserRole.USER } as User;
+    const mockBlock = {
+      id: 1,
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: 1
+    } as RoomBlock;
+    const validDto = {
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: 1
+    };
+    const mockSeat = { id: 1, ...validDto, roomBlockId: 1 } as RoomSeat;
+
+    it('should create and return the seat when called by ADMIN', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomSeatsRepository.create.mockReturnValue(mockSeat);
+      mockRoomSeatsRepository.save.mockResolvedValue(mockSeat);
+
+      const result = await service.createSeat(1, validDto, adminUser);
+
+      expect(result).toEqual(mockSeat);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        adminUser
+      );
+      expect(mockRoomSeatsRepository.create).toHaveBeenCalledWith({
+        ...validDto,
+        roomBlockId: 1
+      });
+    });
+
+    it('should create and return the seat when called by cinema owner', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockRoomSeatsRepository.create.mockReturnValue(mockSeat);
+      mockRoomSeatsRepository.save.mockResolvedValue(mockSeat);
+
+      const result = await service.createSeat(1, validDto, ownerUser);
+
+      expect(result).toEqual(mockSeat);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        ownerUser
+      );
+    });
+
+    it('should throw ForbiddenException when user is not owner nor ADMIN', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(mockBlock);
+      mockRoomsRepository.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException(
+          'Not allowed to perform this action on this cinema'
+        )
+      );
+
+      await expect(service.createSeat(1, validDto, otherUser)).rejects.toThrow(
+        ForbiddenException
+      );
+      expect(mockRoomSeatsRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when block does not exist', async () => {
+      mockRoomBlocksRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.createSeat(99, validDto, adminUser)).rejects.toThrow(
+        new NotFoundException('RoomBlock with ID 99 not found')
+      );
     });
   });
 
