@@ -1505,3 +1505,87 @@ describe('DELETE /room-seats/:id', () => {
       .expect(404);
   });
 });
+
+describe('GET /room-blocks/:id', () => {
+  let app: INestApplication;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let cinemaRepository: Repository<Cinema>;
+  let dataSource: DataSource;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    dataSource = roomRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'room_seats',
+      'room_blocks',
+      'rooms',
+      'cinemas',
+      'users'
+    ]);
+  });
+
+  it('should return 200 with block data', async () => {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId: cinema.id
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/room-blocks/${block.id}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(block.id);
+    expect(res.body.rowSeats).toBe(5);
+    expect(res.body.columnsSeats).toBe(8);
+    expect(res.body.roomId).toBe(room.id);
+  });
+
+  it('should return 404 when block does not exist', async () => {
+    await request(app.getHttpServer()).get('/room-blocks/99999').expect(404);
+  });
+
+  it('should be public (no auth required)', async () => {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId: cinema.id
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+
+    await request(app.getHttpServer())
+      .get(`/room-blocks/${block.id}`)
+      .expect(200);
+  });
+});
