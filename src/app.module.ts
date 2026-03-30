@@ -11,6 +11,7 @@ import { entities } from './config/entities';
 import { CinemasModule } from './cinemas/cinemas.module';
 import { ActorsModule } from './actors/actors.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { ShowtimesModule } from './showtimes/showtimes.module';
 
 @Module({
   imports: [
@@ -38,7 +39,8 @@ import { RoomsModule } from './rooms/rooms.module';
     AuthModule,
     CinemasModule,
     ActorsModule,
-    RoomsModule
+    RoomsModule,
+    ShowtimesModule
   ],
   providers: [
     {

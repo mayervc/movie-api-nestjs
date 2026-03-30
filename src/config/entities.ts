@@ -7,6 +7,7 @@ import { CinemaUser } from '../cinemas/entities/cinema-user.entity';
 import { Room } from '../rooms/entities/room.entity';
 import { RoomBlock } from '../rooms/entities/room-block.entity';
 import { RoomSeat } from '../rooms/entities/room-seat.entity';
+import { Showtime } from '../showtimes/entities/showtime.entity';
 
 /**
  * Array centralizado de todas las entidades de TypeORM
@@ -22,5 +23,6 @@ export const entities = [
   CinemaUser,
   Room,
   RoomBlock,
-  RoomSeat
+  RoomSeat,
+  Showtime
 ];
