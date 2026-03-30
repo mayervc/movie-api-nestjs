@@ -1,4 +1,12 @@
-import { Body, Controller, Param, ParseIntPipe, Patch } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Patch
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -32,5 +40,23 @@ export class RoomSeatsController {
     @CurrentUser() currentUser: User
   ) {
     return this.roomsService.updateSeat(id, updateRoomSeatDto, currentUser);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete room seat by ID' })
+  @ApiResponse({ status: 204, description: 'Room seat deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Room seat not found' })
+  deleteSeat(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.roomsService.deleteSeat(id, currentUser);
   }
 }
