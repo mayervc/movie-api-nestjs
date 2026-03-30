@@ -1589,3 +1589,107 @@ describe('GET /room-blocks/:id', () => {
       .expect(200);
   });
 });
+
+describe('GET /room-seats/:id', () => {
+  let app: INestApplication;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let roomSeatRepository: Repository<RoomSeat>;
+  let cinemaRepository: Repository<Cinema>;
+  let dataSource: DataSource;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    roomSeatRepository = testModule.get<Repository<RoomSeat>>(
+      getRepositoryToken(RoomSeat)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    dataSource = roomRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'room_seats',
+      'room_blocks',
+      'rooms',
+      'cinemas',
+      'users'
+    ]);
+  });
+
+  it('should return 200 with seat data', async () => {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId: cinema.id
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    const seat = await roomSeatRepository.save({
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: room.id,
+      roomBlockId: block.id
+    });
+
+    const res = await request(app.getHttpServer())
+      .get(`/room-seats/${seat.id}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(seat.id);
+    expect(res.body.seatRowLabel).toBe('A');
+    expect(res.body.seatRow).toBe(1);
+    expect(res.body.roomBlockId).toBe(block.id);
+  });
+
+  it('should return 404 when seat does not exist', async () => {
+    await request(app.getHttpServer()).get('/room-seats/99999').expect(404);
+  });
+
+  it('should be public (no auth required)', async () => {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const room = await roomRepository.save({
+      name: 'Sala Estandar',
+      rowsBlocks: 2,
+      columnsBlocks: 2,
+      details: null,
+      cinemaId: cinema.id
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 5,
+      columnsSeats: 8,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    const seat = await roomSeatRepository.save({
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: room.id,
+      roomBlockId: block.id
+    });
+
+    await request(app.getHttpServer())
+      .get(`/room-seats/${seat.id}`)
+      .expect(200);
+  });
+});

@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   Param,
   ParseIntPipe,
@@ -13,6 +14,7 @@ import {
   ApiResponse,
   ApiTags
 } from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RoomsService } from './rooms.service';
 import { UpdateRoomSeatDto } from './dto/update-room-seat.dto';
@@ -22,6 +24,15 @@ import { User } from '../users/entities/user.entity';
 @Controller('room-seats')
 export class RoomSeatsController {
   constructor(private readonly roomsService: RoomsService) {}
+
+  @Get(':id')
+  @Public()
+  @ApiOperation({ summary: 'Get room seat by ID' })
+  @ApiResponse({ status: 200, description: 'Room seat found' })
+  @ApiResponse({ status: 404, description: 'Room seat not found' })
+  findOneSeat(@Param('id', ParseIntPipe) id: number) {
+    return this.roomsService.findOneSeat(id);
+  }
 
   @Patch(':id')
   @ApiBearerAuth()
