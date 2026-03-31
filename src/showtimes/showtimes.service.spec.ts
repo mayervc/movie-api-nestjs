@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ShowtimesService } from './showtimes.service';
 import { Showtime } from './entities/showtime.entity';
+import { MoviesService } from '../movies/movies.service';
+import { RoomsService } from '../rooms/rooms.service';
+import { CinemasService } from '../cinemas/cinemas.service';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 const mockShowtime: Showtime = {
   id: 1,
@@ -24,8 +29,20 @@ const mockQueryBuilder = {
 
 const mockShowtimesRepository = {
   findOne: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn(),
   createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
 };
+
+const mockMoviesService = { findOne: jest.fn() };
+const mockRoomsService = { findOne: jest.fn() };
+const mockCinemasService = { assertCinemaOwnerOrAdmin: jest.fn() };
+
+const mockRoom = { id: 1, cinemaId: 1 };
+const mockAdminUser = {
+  id: 1,
+  role: UserRole.ADMIN
+} as User;
 
 describe('ShowtimesService', () => {
   let service: ShowtimesService;
@@ -37,7 +54,10 @@ describe('ShowtimesService', () => {
         {
           provide: getRepositoryToken(Showtime),
           useValue: mockShowtimesRepository
-        }
+        },
+        { provide: MoviesService, useValue: mockMoviesService },
+        { provide: RoomsService, useValue: mockRoomsService },
+        { provide: CinemasService, useValue: mockCinemasService }
       ]
     }).compile();
 
@@ -128,6 +148,59 @@ describe('ShowtimesService', () => {
       mockQueryBuilder.getMany.mockResolvedValue([]);
       const result = await service.search({ movieId: 99999 });
       expect(result).toEqual([]);
+    });
+  });
+
+  describe('create', () => {
+    const createDto = {
+      movieId: 1,
+      roomId: 1,
+      startTime: '2026-04-01T20:00:00Z',
+      ticketPrice: 9.99
+    };
+
+    it('should create and return a showtime when ADMIN', async () => {
+      mockMoviesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockShowtimesRepository.create.mockReturnValue(mockShowtime);
+      mockShowtimesRepository.save.mockResolvedValue(mockShowtime);
+
+      const result = await service.create(createDto, mockAdminUser);
+
+      expect(result).toEqual(mockShowtime);
+      expect(mockMoviesService.findOne).toHaveBeenCalledWith(1);
+      expect(mockRoomsService.findOne).toHaveBeenCalledWith(1);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        1,
+        mockAdminUser
+      );
+    });
+
+    it('should throw NotFoundException when movie does not exist', async () => {
+      mockMoviesService.findOne.mockRejectedValue(new NotFoundException());
+      await expect(service.create(createDto, mockAdminUser)).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('should throw NotFoundException when room does not exist', async () => {
+      mockMoviesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOne.mockRejectedValue(new NotFoundException());
+      await expect(service.create(createDto, mockAdminUser)).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('should throw ForbiddenException when user is not ADMIN or cinema owner', async () => {
+      mockMoviesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException()
+      );
+      await expect(service.create(createDto, mockAdminUser)).rejects.toThrow(
+        ForbiddenException
+      );
     });
   });
 });
