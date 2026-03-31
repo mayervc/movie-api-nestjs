@@ -4,6 +4,7 @@ import { seedMovies } from './movie.seeder';
 import { seedUsers } from './user.seeder';
 import { seedCinemas } from './cinema.seeder';
 import { seedRooms } from './rooms.seeder';
+import { seedShowtimes } from './showtime.seeder';
 import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
@@ -41,6 +42,7 @@ async function runSeeders() {
     await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
     await userRepository.query('TRUNCATE TABLE "users" CASCADE');
     await dataSource.query('TRUNCATE TABLE "cinemas" CASCADE');
+    await dataSource.query('TRUNCATE TABLE "showtimes" CASCADE');
 
     // Ejecutar seeders
     console.log('Inserting users...');
@@ -50,6 +52,8 @@ async function runSeeders() {
     await seedCinemas(dataSource);
     console.log('Inserting rooms, blocks and seats...');
     await seedRooms(dataSource);
+    console.log('Inserting showtimes...');
+    await seedShowtimes(dataSource);
 
     await dataSource.destroy();
     console.log('Seeders completed successfully');
