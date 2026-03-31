@@ -36,13 +36,14 @@ async function runSeeders() {
     const userRepository = dataSource.getRepository(User);
 
     console.log('Cleaning existing data...');
-    // Limpiar en orden: primero cast (tabla con foreign keys), luego movies, actors y users
+    // Showtimes: always reset (they change over time)
+    await dataSource.query('TRUNCATE TABLE "showtimes" CASCADE');
+    // Movies, actors, cast, users: reset for test data consistency
     await castRepository.query('TRUNCATE TABLE "cast" CASCADE');
     await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
     await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
     await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-    await dataSource.query('TRUNCATE TABLE "cinemas" CASCADE');
-    await dataSource.query('TRUNCATE TABLE "showtimes" CASCADE');
+    // Cinemas and rooms: never truncated — seeders are idempotent for these
 
     // Ejecutar seeders
     console.log('Inserting users...');

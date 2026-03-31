@@ -95,6 +95,18 @@ export async function seedRooms(dataSource: DataSource): Promise<void> {
       const { rowsBlocks, columnsBlocks, blockConfig, details } = room;
       const { rowSeats, columnsSeats } = blockConfig;
 
+      const existing = await dataSource.query<{ id: number }[]>(
+        `SELECT id FROM rooms WHERE name = $1 AND cinema_id = $2 LIMIT 1`,
+        [room.name, cinemaId]
+      );
+
+      if (existing.length > 0) {
+        console.log(
+          `  Room already exists, skipping: ${cinemaLayout.cinemaName} -> ${room.name}`
+        );
+        continue;
+      }
+
       const roomRows = await dataSource.query<{ id: number }[]>(
         `INSERT INTO rooms (name, rows_blocks, columns_blocks, details, cinema_id, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, now(), now())
