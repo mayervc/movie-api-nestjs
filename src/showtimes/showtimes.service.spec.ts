@@ -54,7 +54,8 @@ describe('ShowtimesService', () => {
       const result = await service.findOne(1);
       expect(result).toEqual(mockShowtime);
       expect(mockShowtimesRepository.findOne).toHaveBeenCalledWith({
-        where: { id: 1 }
+        where: { id: 1 },
+        relations: ['movie', 'room']
       });
     });
 

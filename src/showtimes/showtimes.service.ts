@@ -12,7 +12,10 @@ export class ShowtimesService {
   ) {}
 
   async findOne(id: number): Promise<Showtime> {
-    const showtime = await this.showtimesRepository.findOne({ where: { id } });
+    const showtime = await this.showtimesRepository.findOne({
+      where: { id },
+      relations: ['movie', 'room']
+    });
     if (!showtime) {
       throw new NotFoundException(`Showtime with ID ${id} not found`);
     }
