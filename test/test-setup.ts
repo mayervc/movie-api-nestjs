@@ -29,7 +29,8 @@ beforeAll(async () => {
     'actors',
     'cast',
     'cinemas',
-    'cinema_users'
+    'cinema_users',
+    'showtimes'
   ]);
 });
 

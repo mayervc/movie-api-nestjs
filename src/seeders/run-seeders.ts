@@ -4,6 +4,7 @@ import { seedMovies } from './movie.seeder';
 import { seedUsers } from './user.seeder';
 import { seedCinemas } from './cinema.seeder';
 import { seedRooms } from './rooms.seeder';
+import { seedShowtimes } from './showtime.seeder';
 import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
@@ -35,12 +36,14 @@ async function runSeeders() {
     const userRepository = dataSource.getRepository(User);
 
     console.log('Cleaning existing data...');
-    // Limpiar en orden: primero cast (tabla con foreign keys), luego movies, actors y users
+    // Showtimes: always reset (they change over time)
+    await dataSource.query('TRUNCATE TABLE "showtimes" CASCADE');
+    // Movies, actors, cast, users: reset for test data consistency
     await castRepository.query('TRUNCATE TABLE "cast" CASCADE');
     await movieRepository.query('TRUNCATE TABLE "movies" CASCADE');
     await actorRepository.query('TRUNCATE TABLE "actors" CASCADE');
     await userRepository.query('TRUNCATE TABLE "users" CASCADE');
-    await dataSource.query('TRUNCATE TABLE "cinemas" CASCADE');
+    // Cinemas and rooms: never truncated — seeders are idempotent for these
 
     // Ejecutar seeders
     console.log('Inserting users...');
@@ -50,6 +53,8 @@ async function runSeeders() {
     await seedCinemas(dataSource);
     console.log('Inserting rooms, blocks and seats...');
     await seedRooms(dataSource);
+    console.log('Inserting showtimes...');
+    await seedShowtimes(dataSource);
 
     await dataSource.destroy();
     console.log('Seeders completed successfully');
