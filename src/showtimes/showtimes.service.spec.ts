@@ -35,6 +35,7 @@ const mockShowtimesRepository = {
   findOne: jest.fn(),
   create: jest.fn(),
   save: jest.fn(),
+  remove: jest.fn(),
   createQueryBuilder: jest.fn().mockReturnValue(mockQueryBuilder)
 };
 
@@ -288,6 +289,37 @@ describe('ShowtimesService', () => {
       expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
         newRoom.cinemaId,
         mockAdminUser
+      );
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete the showtime when ADMIN', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockShowtimesRepository.remove.mockResolvedValue(undefined);
+
+      await expect(service.remove(1, mockAdminUser)).resolves.toBeUndefined();
+
+      expect(mockShowtimesRepository.remove).toHaveBeenCalledWith(mockShowtime);
+    });
+
+    it('should throw NotFoundException when showtime does not exist', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(null);
+      await expect(service.remove(99, mockAdminUser)).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('should throw ForbiddenException when user is not ADMIN or cinema owner', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException()
+      );
+      await expect(service.remove(1, mockAdminUser)).rejects.toThrow(
+        ForbiddenException
       );
     });
   });

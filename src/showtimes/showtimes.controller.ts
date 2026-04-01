@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -64,6 +65,24 @@ export class ShowtimesController {
     @CurrentUser() currentUser: User
   ) {
     return this.showtimesService.update(id, updateShowtimeDto, currentUser);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete showtime by ID' })
+  @ApiResponse({ status: 204, description: 'Showtime deleted successfully' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Showtime not found' })
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.showtimesService.remove(id, currentUser);
   }
 
   @Get(':id')

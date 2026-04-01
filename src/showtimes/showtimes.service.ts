@@ -77,6 +77,21 @@ export class ShowtimesService {
     return this.showtimesRepository.save(showtime);
   }
 
+  async remove(id: number, currentUser: User): Promise<void> {
+    const showtime = await this.showtimesRepository.findOne({ where: { id } });
+    if (!showtime) {
+      throw new NotFoundException(`Showtime with ID ${id} not found`);
+    }
+
+    const room = await this.roomsService.findOne(showtime.roomId);
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    await this.showtimesRepository.remove(showtime);
+  }
+
   async search(dto: SearchShowtimesDto): Promise<Showtime[]> {
     const qb = this.showtimesRepository.createQueryBuilder('showtime');
 
