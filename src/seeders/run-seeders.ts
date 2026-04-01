@@ -5,6 +5,7 @@ import { seedUsers } from './user.seeder';
 import { seedCinemas } from './cinema.seeder';
 import { seedRooms } from './rooms.seeder';
 import { seedShowtimes } from './showtime.seeder';
+import { seedTickets } from './ticket.seeder';
 import { Movie } from '../movies/entities/movie.entity';
 import { Actor } from '../actors/entities/actor.entity';
 import { Cast } from '../cast/entities/cast.entity';
@@ -36,7 +37,8 @@ async function runSeeders() {
     const userRepository = dataSource.getRepository(User);
 
     console.log('Cleaning existing data...');
-    // Showtimes: always reset (they change over time)
+    // Tickets and showtimes: always reset (they change over time)
+    await dataSource.query('TRUNCATE TABLE "showtime_tickets" CASCADE');
     await dataSource.query('TRUNCATE TABLE "showtimes" CASCADE');
     // Movies, actors, cast, users: reset for test data consistency
     await castRepository.query('TRUNCATE TABLE "cast" CASCADE');
@@ -55,6 +57,8 @@ async function runSeeders() {
     await seedRooms(dataSource);
     console.log('Inserting showtimes...');
     await seedShowtimes(dataSource);
+    console.log('Inserting tickets...');
+    await seedTickets(dataSource);
 
     await dataSource.destroy();
     console.log('Seeders completed successfully');
