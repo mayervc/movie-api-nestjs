@@ -1,6 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException
+} from '@nestjs/common';
 import { ShowtimesService } from './showtimes.service';
 import { Showtime } from './entities/showtime.entity';
 import { MoviesService } from '../movies/movies.service';
@@ -199,6 +203,55 @@ describe('ShowtimesService', () => {
         new ForbiddenException()
       );
       await expect(service.create(createDto, mockAdminUser)).rejects.toThrow(
+        ForbiddenException
+      );
+    });
+  });
+
+  describe('update', () => {
+    const updateDto = { ticketPrice: 12.5 };
+
+    it('should update and return the showtime when ADMIN', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockShowtimesRepository.save.mockResolvedValue({
+        ...mockShowtime,
+        ...updateDto
+      });
+
+      const result = await service.update(1, updateDto, mockAdminUser);
+
+      expect(result.ticketPrice).toBe(12.5);
+      expect(mockRoomsService.findOne).toHaveBeenCalledWith(
+        mockShowtime.roomId
+      );
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        mockRoom.cinemaId,
+        mockAdminUser
+      );
+    });
+
+    it('should throw BadRequestException when body is empty', async () => {
+      await expect(service.update(1, {}, mockAdminUser)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it('should throw NotFoundException when showtime does not exist', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(null);
+      await expect(
+        service.update(99, updateDto, mockAdminUser)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException when user is not ADMIN or cinema owner', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockResolvedValue(mockRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockRejectedValue(
+        new ForbiddenException()
+      );
+      await expect(service.update(1, updateDto, mockAdminUser)).rejects.toThrow(
         ForbiddenException
       );
     });
