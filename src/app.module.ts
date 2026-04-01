@@ -12,7 +12,6 @@ import { CinemasModule } from './cinemas/cinemas.module';
 import { ActorsModule } from './actors/actors.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ShowtimesModule } from './showtimes/showtimes.module';
-import { TicketsModule } from './tickets/tickets.module';
 
 @Module({
   imports: [
@@ -41,8 +40,7 @@ import { TicketsModule } from './tickets/tickets.module';
     CinemasModule,
     ActorsModule,
     RoomsModule,
-    ShowtimesModule,
-    TicketsModule
+    ShowtimesModule
   ],
   providers: [
     {
