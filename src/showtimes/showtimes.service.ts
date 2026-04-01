@@ -62,7 +62,12 @@ export class ShowtimesService {
       throw new NotFoundException(`Showtime with ID ${id} not found`);
     }
 
-    const room = await this.roomsService.findOne(showtime.roomId);
+    if (dto.movieId !== undefined) {
+      await this.moviesService.findOne(dto.movieId);
+    }
+
+    const roomId = dto.roomId ?? showtime.roomId;
+    const room = await this.roomsService.findOne(roomId);
     await this.cinemasService.assertCinemaOwnerOrAdmin(
       room.cinemaId,
       currentUser

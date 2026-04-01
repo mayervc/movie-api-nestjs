@@ -255,5 +255,40 @@ describe('ShowtimesService', () => {
         ForbiddenException
       );
     });
+
+    it('should throw NotFoundException when new movieId does not exist', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockMoviesService.findOne.mockRejectedValue(new NotFoundException());
+      await expect(
+        service.update(1, { movieId: 99 }, mockAdminUser)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw NotFoundException when new roomId does not exist', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockRejectedValue(new NotFoundException());
+      await expect(
+        service.update(1, { roomId: 99 }, mockAdminUser)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should use new roomId for ownership check when roomId changes', async () => {
+      const newRoom = { id: 2, cinemaId: 2 };
+      mockShowtimesRepository.findOne.mockResolvedValue(mockShowtime);
+      mockRoomsService.findOne.mockResolvedValue(newRoom);
+      mockCinemasService.assertCinemaOwnerOrAdmin.mockResolvedValue(undefined);
+      mockShowtimesRepository.save.mockResolvedValue({
+        ...mockShowtime,
+        roomId: 2
+      });
+
+      await service.update(1, { roomId: 2 }, mockAdminUser);
+
+      expect(mockRoomsService.findOne).toHaveBeenCalledWith(2);
+      expect(mockCinemasService.assertCinemaOwnerOrAdmin).toHaveBeenCalledWith(
+        newRoom.cinemaId,
+        mockAdminUser
+      );
+    });
   });
 });
