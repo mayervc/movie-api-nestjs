@@ -30,7 +30,8 @@ beforeAll(async () => {
     'cast',
     'cinemas',
     'cinema_users',
-    'showtimes'
+    'showtimes',
+    'showtime_tickets'
   ]);
 });
 

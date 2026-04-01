@@ -6,6 +6,7 @@ import typeormTestConfig from '../src/config/typeorm-test.config';
  * Orden: de dependientes a independientes (cast → movies, actors → users).
  */
 export const TRUNCATEABLE_TABLES = [
+  'showtime_tickets',
   'showtimes',
   'cast',
   'movies',
