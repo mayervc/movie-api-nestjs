@@ -1,9 +1,14 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Showtime } from './entities/showtime.entity';
 import { SearchShowtimesDto } from './dto/search-showtimes.dto';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
+import { UpdateShowtimeDto } from './dto/update-showtime.dto';
 import { MoviesService } from '../movies/movies.service';
 import { RoomsService } from '../rooms/rooms.service';
 import { CinemasService } from '../cinemas/cinemas.service';
@@ -40,6 +45,35 @@ export class ShowtimesService {
     );
 
     const showtime = this.showtimesRepository.create(dto);
+    return this.showtimesRepository.save(showtime);
+  }
+
+  async update(
+    id: number,
+    dto: UpdateShowtimeDto,
+    currentUser: User
+  ): Promise<Showtime> {
+    if (Object.keys(dto).length === 0) {
+      throw new BadRequestException('Request body cannot be empty');
+    }
+
+    const showtime = await this.showtimesRepository.findOne({ where: { id } });
+    if (!showtime) {
+      throw new NotFoundException(`Showtime with ID ${id} not found`);
+    }
+
+    if (dto.movieId !== undefined) {
+      await this.moviesService.findOne(dto.movieId);
+    }
+
+    const roomId = dto.roomId ?? showtime.roomId;
+    const room = await this.roomsService.findOne(roomId);
+    await this.cinemasService.assertCinemaOwnerOrAdmin(
+      room.cinemaId,
+      currentUser
+    );
+
+    Object.assign(showtime, dto);
     return this.showtimesRepository.save(showtime);
   }
 

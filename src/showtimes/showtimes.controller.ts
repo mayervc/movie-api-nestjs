@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   ParseIntPipe,
+  Patch,
   Post
 } from '@nestjs/common';
 import {
@@ -18,6 +19,7 @@ import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ShowtimesService } from './showtimes.service';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
+import { UpdateShowtimeDto } from './dto/update-showtime.dto';
 import { SearchShowtimesDto } from './dto/search-showtimes.dto';
 import { User } from '../users/entities/user.entity';
 
@@ -43,6 +45,25 @@ export class ShowtimesController {
     @CurrentUser() currentUser: User
   ) {
     return this.showtimesService.create(createShowtimeDto, currentUser);
+  }
+
+  @Patch(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update showtime by ID' })
+  @ApiResponse({ status: 200, description: 'Showtime updated successfully' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - Admin or cinema owner required'
+  })
+  @ApiResponse({ status: 404, description: 'Showtime not found' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() updateShowtimeDto: UpdateShowtimeDto,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.showtimesService.update(id, updateShowtimeDto, currentUser);
   }
 
   @Get(':id')
