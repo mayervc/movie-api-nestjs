@@ -16,6 +16,7 @@ export class TicketsService {
     showtimeId: number,
     userId: number
   ): Promise<ShowtimeTicket[]> {
+    // Validates the showtime exists — throws NotFoundException (404) if not found
     await this.showtimesService.findOne(showtimeId);
 
     return this.ticketsRepository.find({
