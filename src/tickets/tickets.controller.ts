@@ -1,4 +1,13 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Post
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -31,5 +40,22 @@ export class TicketsController {
     @CurrentUser() currentUser: User
   ) {
     return this.ticketsService.purchase(purchaseTicketsDto, currentUser.id);
+  }
+
+  @Get(':id')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get ticket by ID' })
+  @ApiResponse({ status: 200, description: 'Ticket found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - ticket owner or ADMIN required'
+  })
+  @ApiResponse({ status: 404, description: 'Ticket not found' })
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.ticketsService.findOne(id, currentUser);
   }
 }

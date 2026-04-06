@@ -1,11 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException
+} from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { ShowtimeTicket } from './entities/showtime-ticket.entity';
 import { Showtime } from '../showtimes/entities/showtime.entity';
 import { RoomsService } from '../rooms/rooms.service';
 import { TicketStatus } from './enums/ticket-status.enum';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 const mockTicket: ShowtimeTicket = {
   id: 1,
@@ -35,6 +41,9 @@ const mockRoomsService = {
   findOneSeat: jest.fn()
 };
 
+const mockAdminUser = { id: 1, role: UserRole.ADMIN } as User;
+const mockRegularUser = { id: 2, role: UserRole.USER } as User;
+
 describe('TicketsService', () => {
   let service: TicketsService;
 
@@ -59,6 +68,41 @@ describe('TicketsService', () => {
 
     service = module.get<TicketsService>(TicketsService);
     jest.clearAllMocks();
+  });
+
+  describe('findOne', () => {
+    it('should return the ticket when the owner requests it', async () => {
+      const ownerTicket = { ...mockTicket, userId: mockRegularUser.id };
+      mockTicketsRepository.findOne.mockResolvedValue(ownerTicket);
+
+      const result = await service.findOne(1, mockRegularUser);
+
+      expect(result).toEqual(ownerTicket);
+    });
+
+    it('should return the ticket when an ADMIN requests it', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue(mockTicket);
+
+      const result = await service.findOne(1, mockAdminUser);
+
+      expect(result).toEqual(mockTicket);
+    });
+
+    it('should throw NotFoundException when ticket does not exist', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findOne(99, mockAdminUser)).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('should throw ForbiddenException when user is not the owner', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue(mockTicket); // userId: 1
+
+      await expect(service.findOne(1, mockRegularUser)).rejects.toThrow(
+        ForbiddenException
+      );
+    });
   });
 
   describe('findByShowtime', () => {
