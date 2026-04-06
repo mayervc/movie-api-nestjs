@@ -1,4 +1,13 @@
-import { Controller, Get, Param, ParseIntPipe } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseIntPipe,
+  Post
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -6,15 +15,34 @@ import {
   ApiTags
 } from '@nestjs/swagger';
 import { TicketsService } from './tickets.service';
+import { PurchaseTicketsDto } from './dto/purchase-tickets.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('tickets')
-@Controller('showtimes')
+@Controller()
 export class TicketsController {
   constructor(private readonly ticketsService: TicketsService) {}
 
-  @Get(':id/tickets')
+  @Post('tickets')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Purchase tickets for a showtime' })
+  @ApiResponse({ status: 201, description: 'Tickets created successfully' })
+  @ApiResponse({
+    status: 400,
+    description: 'Seat already taken or validation failure'
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Showtime or seat not found' })
+  purchase(
+    @Body() purchaseTicketsDto: PurchaseTicketsDto,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.ticketsService.purchase(purchaseTicketsDto, currentUser.id);
+  }
+
+  @Get('showtimes/:id/tickets')
   @ApiBearerAuth()
   @ApiOperation({ summary: "Get authenticated user's tickets for a showtime" })
   @ApiResponse({

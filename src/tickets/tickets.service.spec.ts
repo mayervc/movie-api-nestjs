@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 import { ShowtimeTicket } from './entities/showtime-ticket.entity';
 import { ShowtimesService } from '../showtimes/showtimes.service';
+import { RoomsService } from '../rooms/rooms.service';
 import { TicketStatus } from './enums/ticket-status.enum';
 
 const mockTicket: ShowtimeTicket = {
@@ -20,11 +21,18 @@ const mockTicket: ShowtimeTicket = {
 };
 
 const mockTicketsRepository = {
-  find: jest.fn()
+  find: jest.fn(),
+  findOne: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn()
 };
 
 const mockShowtimesService = {
   findOne: jest.fn()
+};
+
+const mockRoomsService = {
+  findOneSeat: jest.fn()
 };
 
 describe('TicketsService', () => {
@@ -41,6 +49,10 @@ describe('TicketsService', () => {
         {
           provide: ShowtimesService,
           useValue: mockShowtimesService
+        },
+        {
+          provide: RoomsService,
+          useValue: mockRoomsService
         }
       ]
     }).compile();
@@ -80,6 +92,73 @@ describe('TicketsService', () => {
         NotFoundException
       );
       expect(mockTicketsRepository.find).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('purchase', () => {
+    const dto = { showtimeId: 1, roomSeatIds: [1, 2] };
+
+    it('should create and return tickets for valid seats', async () => {
+      mockShowtimesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
+      mockTicketsRepository.findOne.mockResolvedValue(null);
+      mockTicketsRepository.create.mockImplementation((data) => data);
+      mockTicketsRepository.save.mockResolvedValue([
+        { ...mockTicket, roomSeatId: 1 },
+        { ...mockTicket, roomSeatId: 2 }
+      ]);
+
+      const result = await service.purchase(dto, 1);
+
+      expect(result).toHaveLength(2);
+      expect(mockShowtimesService.findOne).toHaveBeenCalledWith(dto.showtimeId);
+      expect(mockRoomsService.findOneSeat).toHaveBeenCalledTimes(2);
+      expect(mockTicketsRepository.save).toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when showtime does not exist', async () => {
+      mockShowtimesService.findOne.mockRejectedValue(new NotFoundException());
+
+      await expect(service.purchase(dto, 1)).rejects.toThrow(NotFoundException);
+      expect(mockRoomsService.findOneSeat).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException when seat does not exist', async () => {
+      mockShowtimesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOneSeat.mockRejectedValue(new NotFoundException());
+
+      await expect(service.purchase(dto, 1)).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw BadRequestException when seat is already taken', async () => {
+      mockShowtimesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
+      mockTicketsRepository.findOne.mockResolvedValue({
+        ...mockTicket,
+        status: TicketStatus.RESERVED
+      });
+
+      await expect(service.purchase(dto, 1)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it('should allow purchase when existing ticket is cancelled', async () => {
+      mockShowtimesService.findOne.mockResolvedValue({ id: 1 });
+      mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
+      mockTicketsRepository.findOne.mockResolvedValue({
+        ...mockTicket,
+        status: TicketStatus.CANCELLED
+      });
+      mockTicketsRepository.create.mockImplementation((data) => data);
+      mockTicketsRepository.save.mockResolvedValue([
+        { ...mockTicket, roomSeatId: 1 },
+        { ...mockTicket, roomSeatId: 2 }
+      ]);
+
+      const result = await service.purchase(dto, 1);
+
+      expect(result).toHaveLength(2);
     });
   });
 });
