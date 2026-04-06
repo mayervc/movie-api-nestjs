@@ -19,6 +19,7 @@ import {
 import { Public } from '../auth/decorators/public.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { ShowtimesService } from './showtimes.service';
+import { TicketsService } from '../tickets/tickets.service';
 import { CreateShowtimeDto } from './dto/create-showtime.dto';
 import { UpdateShowtimeDto } from './dto/update-showtime.dto';
 import { SearchShowtimesDto } from './dto/search-showtimes.dto';
@@ -27,7 +28,10 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('showtimes')
 @Controller('showtimes')
 export class ShowtimesController {
-  constructor(private readonly showtimesService: ShowtimesService) {}
+  constructor(
+    private readonly showtimesService: ShowtimesService,
+    private readonly ticketsService: TicketsService
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -83,6 +87,22 @@ export class ShowtimesController {
     @CurrentUser() currentUser: User
   ) {
     return this.showtimesService.remove(id, currentUser);
+  }
+
+  @Get(':id/tickets')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: "Get authenticated user's tickets for a showtime" })
+  @ApiResponse({
+    status: 200,
+    description: 'List of tickets (empty array if none)'
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'Showtime not found' })
+  findTicketsByShowtime(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.ticketsService.findByShowtime(id, currentUser.id);
   }
 
   @Get(':id')

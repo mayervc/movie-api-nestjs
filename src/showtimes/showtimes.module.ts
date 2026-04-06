@@ -6,13 +6,15 @@ import { ShowtimesService } from './showtimes.service';
 import { MoviesModule } from '../movies/movies.module';
 import { RoomsModule } from '../rooms/rooms.module';
 import { CinemasModule } from '../cinemas/cinemas.module';
+import { TicketsModule } from '../tickets/tickets.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Showtime]),
     MoviesModule,
     RoomsModule,
-    CinemasModule
+    CinemasModule,
+    TicketsModule
   ],
   controllers: [ShowtimesController],
   providers: [ShowtimesService],
