@@ -105,6 +105,28 @@ describe('TicketsService', () => {
     });
   });
 
+  describe('findByUser', () => {
+    it('should return all tickets for the user', async () => {
+      mockTicketsRepository.find.mockResolvedValue([mockTicket]);
+
+      const result = await service.findByUser(1);
+
+      expect(result).toEqual([mockTicket]);
+      expect(mockTicketsRepository.find).toHaveBeenCalledWith({
+        where: { userId: 1 },
+        relations: ['roomSeat', 'showtime']
+      });
+    });
+
+    it('should return empty array when user has no tickets', async () => {
+      mockTicketsRepository.find.mockResolvedValue([]);
+
+      const result = await service.findByUser(1);
+
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('findByShowtime', () => {
     it('should return tickets for the authenticated user', async () => {
       mockShowtimesRepository.findOne.mockResolvedValue({ id: 1 });
