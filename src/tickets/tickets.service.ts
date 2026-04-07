@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException
 } from '@nestjs/common';
@@ -10,6 +11,8 @@ import { Showtime } from '../showtimes/entities/showtime.entity';
 import { RoomsService } from '../rooms/rooms.service';
 import { PurchaseTicketsDto } from './dto/purchase-tickets.dto';
 import { TicketStatus } from './enums/ticket-status.enum';
+import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class TicketsService {
@@ -28,6 +31,23 @@ export class TicketsService {
     if (!showtime) {
       throw new NotFoundException(`Showtime with ID ${showtimeId} not found`);
     }
+  }
+
+  async findOne(id: number, currentUser: User): Promise<ShowtimeTicket> {
+    const ticket = await this.ticketsRepository.findOne({
+      where: { id },
+      relations: ['roomSeat', 'showtime']
+    });
+    if (!ticket) {
+      throw new NotFoundException(`Ticket with ID ${id} not found`);
+    }
+    if (
+      ticket.userId !== currentUser.id &&
+      currentUser.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('You do not have access to this ticket');
+    }
+    return ticket;
   }
 
   async findByShowtime(

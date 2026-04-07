@@ -157,6 +157,158 @@ describe('GET /showtimes/:id/tickets', () => {
   });
 });
 
+describe('GET /tickets/:id', () => {
+  let app: INestApplication;
+  let ticketRepository: Repository<ShowtimeTicket>;
+  let showtimeRepository: Repository<Showtime>;
+  let movieRepository: Repository<Movie>;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let roomSeatRepository: Repository<RoomSeat>;
+  let cinemaRepository: Repository<Cinema>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let adminToken: string;
+  let userToken: string;
+  let adminUser: User;
+  let regularUser: User;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    ticketRepository = testModule.get<Repository<ShowtimeTicket>>(
+      getRepositoryToken(ShowtimeTicket)
+    );
+    showtimeRepository = testModule.get<Repository<Showtime>>(
+      getRepositoryToken(Showtime)
+    );
+    movieRepository = testModule.get<Repository<Movie>>(
+      getRepositoryToken(Movie)
+    );
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    roomSeatRepository = testModule.get<Repository<RoomSeat>>(
+      getRepositoryToken(RoomSeat)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = ticketRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'showtime_tickets',
+      'showtimes',
+      'rooms',
+      'cinemas',
+      'movies',
+      'users'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    adminUser = auth.adminUser;
+    regularUser = auth.regularUser;
+  });
+
+  async function createTicket(userId: number) {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const movie = await movieRepository.save({
+      title: 'Test Movie',
+      synopsis: 'Test synopsis',
+      genres: ['ACTION'],
+      releaseDate: new Date('2026-01-01'),
+      duration: 120,
+      rating: 8.0,
+      language: 'EN',
+      posterUrl: null,
+      trailerUrl: null
+    });
+    const room = await roomRepository.save({
+      name: 'Sala 1',
+      rowsBlocks: 1,
+      columnsBlocks: 1,
+      details: null,
+      cinemaId: cinema.id
+    });
+    const block = await roomBlockRepository.save({
+      rowSeats: 1,
+      columnsSeats: 1,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    const seat = await roomSeatRepository.save({
+      seatRowLabel: 'A',
+      seatRow: 1,
+      seatColumnLabel: 1,
+      seatColumn: 1,
+      roomId: room.id,
+      roomBlockId: block.id
+    });
+    const showtime = await showtimeRepository.save({
+      movieId: movie.id,
+      roomId: room.id,
+      startTime: new Date('2026-04-01T20:00:00Z'),
+      ticketPrice: 9.99
+    });
+    return ticketRepository.save({
+      userId,
+      showtimeId: showtime.id,
+      roomSeatId: seat.id,
+      status: TicketStatus.RESERVED
+    });
+  }
+
+  it('should return 200 with ticket data when owner requests it', async () => {
+    const ticket = await createTicket(regularUser.id);
+
+    const res = await request(app.getHttpServer())
+      .get(`/tickets/${ticket.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(ticket.id);
+    expect(res.body.userId).toBe(regularUser.id);
+    expect(res.body.status).toBe(TicketStatus.RESERVED);
+  });
+
+  it('should return 200 when ADMIN requests any ticket', async () => {
+    const ticket = await createTicket(regularUser.id);
+
+    const res = await request(app.getHttpServer())
+      .get(`/tickets/${ticket.id}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.id).toBe(ticket.id);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer()).get('/tickets/1').expect(401);
+  });
+
+  it('should return 403 when user is not the owner', async () => {
+    const ticket = await createTicket(adminUser.id);
+
+    await request(app.getHttpServer())
+      .get(`/tickets/${ticket.id}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+  });
+
+  it('should return 404 when ticket does not exist', async () => {
+    await request(app.getHttpServer())
+      .get('/tickets/99999')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+});
+
 describe('POST /tickets', () => {
   let app: INestApplication;
   let ticketRepository: Repository<ShowtimeTicket>;
