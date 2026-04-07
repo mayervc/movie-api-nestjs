@@ -50,6 +50,13 @@ export class TicketsService {
     return ticket;
   }
 
+  async findByUser(userId: number): Promise<ShowtimeTicket[]> {
+    return this.ticketsRepository.find({
+      where: { userId },
+      relations: ['roomSeat', 'showtime']
+    });
+  }
+
   async findByShowtime(
     showtimeId: number,
     userId: number

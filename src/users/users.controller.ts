@@ -15,6 +15,7 @@ import {
   ApiBearerAuth
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
+import { TicketsService } from '../tickets/tickets.service';
 import { UserResponseDto } from './dto/user-response.dto';
 import { CreateUserByAdminDto } from './dto/create-user-by-admin.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -39,7 +40,10 @@ function toUserResponse(user: User): UserResponseDto {
 @Controller('users')
 @ApiBearerAuth()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly ticketsService: TicketsService
+  ) {}
 
   @Get('me')
   @ApiOperation({ summary: 'Get current user' })
@@ -48,6 +52,17 @@ export class UsersController {
   async getMe(@CurrentUser() user: User): Promise<UserResponseDto> {
     const full = await this.usersService.findById(user.id);
     return toUserResponse(full);
+  }
+
+  @Get('me/tickets')
+  @ApiOperation({ summary: 'Get all tickets of the authenticated user' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of tickets (empty array if none)'
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  getMyTickets(@CurrentUser() currentUser: User) {
+    return this.ticketsService.findByUser(currentUser.id);
   }
 
   @Post('admin')
