@@ -32,7 +32,8 @@ export class TicketsController {
   @ApiResponse({ status: 201, description: 'Tickets created successfully' })
   @ApiResponse({
     status: 400,
-    description: 'Seat already taken or validation failure'
+    description:
+      'Seat already taken, payment validation failed, or invalid paymentIntentId'
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({ status: 404, description: 'Showtime or seat not found' })
@@ -65,7 +66,16 @@ export class TicketsController {
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Cancel a ticket' })
   @ApiResponse({ status: 204, description: 'Ticket cancelled successfully' })
-  @ApiResponse({ status: 400, description: 'Showtime has already started' })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Showtime has already started, ticket already cancelled, or Stripe refund failed (see message)'
+  })
+  @ApiResponse({
+    status: 503,
+    description:
+      'Ticket was paid online but Stripe is not configured for refunds'
+  })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   @ApiResponse({
     status: 403,

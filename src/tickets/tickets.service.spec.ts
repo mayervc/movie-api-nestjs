@@ -12,6 +12,7 @@ import { RoomsService } from '../rooms/rooms.service';
 import { TicketStatus } from './enums/ticket-status.enum';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
+import { StripeService } from '../stripe/stripe.service';
 
 const mockTicket: ShowtimeTicket = {
   id: 1,
@@ -19,6 +20,7 @@ const mockTicket: ShowtimeTicket = {
   showtimeId: 1,
   roomSeatId: 1,
   status: TicketStatus.RESERVED,
+  stripePaymentIntentId: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   user: null as never,
@@ -39,6 +41,11 @@ const mockShowtimesRepository = {
 
 const mockRoomsService = {
   findOneSeat: jest.fn()
+};
+
+const mockStripeService = {
+  assertPaymentIntentMatchesPurchase: jest.fn().mockResolvedValue(undefined),
+  refundSingleSeat: jest.fn().mockResolvedValue(undefined)
 };
 
 const mockAdminUser = { id: 1, role: UserRole.ADMIN } as User;
@@ -65,6 +72,10 @@ describe('TicketsService', () => {
         {
           provide: RoomsService,
           useValue: mockRoomsService
+        },
+        {
+          provide: StripeService,
+          useValue: mockStripeService
         }
       ]
     }).compile();
@@ -165,9 +176,10 @@ describe('TicketsService', () => {
 
   describe('purchase', () => {
     const dto = { showtimeId: 1, roomSeatIds: [1, 2] };
+    const showtimeRow = { id: 1, ticketPrice: 9.99 };
 
     it('should create and return tickets for valid seats', async () => {
-      mockShowtimesRepository.findOne.mockResolvedValue({ id: 1 });
+      mockShowtimesRepository.findOne.mockResolvedValue(showtimeRow);
       mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
       mockTicketsRepository.findOne.mockResolvedValue(null);
       mockTicketsRepository.create.mockImplementation((data) => data);
@@ -181,6 +193,26 @@ describe('TicketsService', () => {
       expect(result).toHaveLength(2);
       expect(mockRoomsService.findOneSeat).toHaveBeenCalledTimes(2);
       expect(mockTicketsRepository.save).toHaveBeenCalled();
+      expect(
+        mockStripeService.assertPaymentIntentMatchesPurchase
+      ).not.toHaveBeenCalled();
+    });
+
+    it('should validate Stripe payment when paymentIntentId is provided', async () => {
+      mockShowtimesRepository.findOne.mockResolvedValue(showtimeRow);
+      mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
+      mockTicketsRepository.findOne.mockResolvedValue(null);
+      mockTicketsRepository.create.mockImplementation((data) => data);
+      mockTicketsRepository.save.mockResolvedValue([
+        { ...mockTicket, roomSeatId: 1, stripePaymentIntentId: 'pi_test' },
+        { ...mockTicket, roomSeatId: 2, stripePaymentIntentId: 'pi_test' }
+      ]);
+
+      await service.purchase({ ...dto, paymentIntentId: 'pi_testvalid' }, 1);
+
+      expect(
+        mockStripeService.assertPaymentIntentMatchesPurchase
+      ).toHaveBeenCalledWith('pi_testvalid', 9.99, 2);
     });
 
     it('should throw NotFoundException when showtime does not exist', async () => {
@@ -191,14 +223,14 @@ describe('TicketsService', () => {
     });
 
     it('should throw NotFoundException when seat does not exist', async () => {
-      mockShowtimesRepository.findOne.mockResolvedValue({ id: 1 });
+      mockShowtimesRepository.findOne.mockResolvedValue(showtimeRow);
       mockRoomsService.findOneSeat.mockRejectedValue(new NotFoundException());
 
       await expect(service.purchase(dto, 1)).rejects.toThrow(NotFoundException);
     });
 
     it('should throw BadRequestException when seat is already taken', async () => {
-      mockShowtimesRepository.findOne.mockResolvedValue({ id: 1 });
+      mockShowtimesRepository.findOne.mockResolvedValue(showtimeRow);
       mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
       mockTicketsRepository.findOne.mockResolvedValue({
         ...mockTicket,
@@ -211,7 +243,7 @@ describe('TicketsService', () => {
     });
 
     it('should allow purchase when existing ticket is cancelled', async () => {
-      mockShowtimesRepository.findOne.mockResolvedValue({ id: 1 });
+      mockShowtimesRepository.findOne.mockResolvedValue(showtimeRow);
       mockRoomsService.findOneSeat.mockResolvedValue({ id: 1 });
       mockTicketsRepository.findOne.mockResolvedValue({
         ...mockTicket,
@@ -231,10 +263,12 @@ describe('TicketsService', () => {
 
   describe('cancel', () => {
     const futureShowtime = {
-      startTime: new Date(Date.now() + MILLISECONDS_PER_DAY)
+      startTime: new Date(Date.now() + MILLISECONDS_PER_DAY),
+      ticketPrice: 9.99
     };
     const pastShowtime = {
-      startTime: new Date(Date.now() - MILLISECONDS_PER_DAY)
+      startTime: new Date(Date.now() - MILLISECONDS_PER_DAY),
+      ticketPrice: 9.99
     };
 
     it('should cancel the ticket when the owner requests it', async () => {
@@ -300,6 +334,45 @@ describe('TicketsService', () => {
 
       await expect(service.cancel(1, mockRegularUser)).rejects.toThrow(
         BadRequestException
+      );
+    });
+
+    it('should throw BadRequestException when ticket is already cancelled', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue({
+        ...mockTicket,
+        status: TicketStatus.CANCELLED,
+        userId: mockRegularUser.id,
+        showtime: futureShowtime
+      });
+
+      await expect(service.cancel(1, mockRegularUser)).rejects.toThrow(
+        BadRequestException
+      );
+      expect(mockStripeService.refundSingleSeat).not.toHaveBeenCalled();
+    });
+
+    it('should refund via Stripe before cancelling when the ticket was paid', async () => {
+      const paidTicket = {
+        ...mockTicket,
+        stripePaymentIntentId: 'pi_testrefund',
+        userId: mockRegularUser.id,
+        showtime: futureShowtime
+      };
+      mockTicketsRepository.findOne.mockResolvedValue(paidTicket);
+      mockTicketsRepository.save.mockResolvedValue({
+        ...paidTicket,
+        status: TicketStatus.CANCELLED
+      });
+
+      await service.cancel(1, mockRegularUser);
+
+      expect(mockStripeService.refundSingleSeat).toHaveBeenCalledWith({
+        paymentIntentId: 'pi_testrefund',
+        amountCents: 999,
+        idempotencyKey: 'showtime-ticket-cancel-1'
+      });
+      expect(mockTicketsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: TicketStatus.CANCELLED })
       );
     });
   });

@@ -13,6 +13,7 @@ import { PurchaseTicketsDto } from './dto/purchase-tickets.dto';
 import { TicketStatus } from './enums/ticket-status.enum';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
+import { StripeService, ticketPriceToCents } from '../stripe/stripe.service';
 
 @Injectable()
 export class TicketsService {
@@ -21,7 +22,8 @@ export class TicketsService {
     private readonly ticketsRepository: Repository<ShowtimeTicket>,
     @InjectRepository(Showtime)
     private readonly showtimesRepository: Repository<Showtime>,
-    private readonly roomsService: RoomsService
+    private readonly roomsService: RoomsService,
+    private readonly stripeService: StripeService
   ) {}
 
   private async assertShowtimeExists(showtimeId: number): Promise<void> {
@@ -73,7 +75,14 @@ export class TicketsService {
     dto: PurchaseTicketsDto,
     userId: number
   ): Promise<ShowtimeTicket[]> {
-    await this.assertShowtimeExists(dto.showtimeId);
+    const showtime = await this.showtimesRepository.findOne({
+      where: { id: dto.showtimeId }
+    });
+    if (!showtime) {
+      throw new NotFoundException(
+        `Showtime with ID ${dto.showtimeId} not found`
+      );
+    }
 
     for (const roomSeatId of dto.roomSeatIds) {
       await this.roomsService.findOneSeat(roomSeatId);
@@ -89,12 +98,23 @@ export class TicketsService {
       }
     }
 
+    if (dto.paymentIntentId) {
+      await this.stripeService.assertPaymentIntentMatchesPurchase(
+        dto.paymentIntentId,
+        showtime.ticketPrice,
+        dto.roomSeatIds.length
+      );
+    }
+
+    const paymentIntentId = dto.paymentIntentId ?? null;
+
     const tickets = dto.roomSeatIds.map((roomSeatId) =>
       this.ticketsRepository.create({
         userId,
         showtimeId: dto.showtimeId,
         roomSeatId,
-        status: TicketStatus.RESERVED
+        status: TicketStatus.RESERVED,
+        stripePaymentIntentId: paymentIntentId
       })
     );
 
@@ -120,8 +140,20 @@ export class TicketsService {
         'Cannot cancel a ticket for a showtime that has already started'
       );
     }
+    if (ticket.status === TicketStatus.CANCELLED) {
+      throw new BadRequestException('Ticket is already cancelled');
+    }
+
+    if (ticket.stripePaymentIntentId) {
+      const amountCents = ticketPriceToCents(ticket.showtime.ticketPrice);
+      await this.stripeService.refundSingleSeat({
+        paymentIntentId: ticket.stripePaymentIntentId,
+        amountCents,
+        idempotencyKey: `showtime-ticket-cancel-${ticket.id}`
+      });
+    }
+
     ticket.status = TicketStatus.CANCELLED;
     await this.ticketsRepository.save(ticket);
-    // TODO: Refund the user via Stripe — to be implemented in the Stripe story
   }
 }
