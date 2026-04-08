@@ -68,6 +68,7 @@ Key helpers:
 - **Error handling:** throw `NotFoundException`, `ConflictException`, etc. — no generic errors
 - **Passwords:** hash with bcrypt before saving; never expose in responses
 - **No `any` types**; no emojis in code comments or logs
+- **No magic numbers or unexplained string literals** in application code or tests. Use named constants with descriptive names (for example `MILLISECONDS_PER_DAY` instead of `86400000`, or `24 * 60 * 60 * 1000` grouped under one such constant)
 - **Commits:** Conventional Commits with scope — `feat(movies):`, `test(cinemas):`, `feat(database):`, `docs(auth):`
 
 ## Git Workflow

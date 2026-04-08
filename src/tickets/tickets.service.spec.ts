@@ -44,6 +44,9 @@ const mockRoomsService = {
 const mockAdminUser = { id: 1, role: UserRole.ADMIN } as User;
 const mockRegularUser = { id: 2, role: UserRole.USER } as User;
 
+/** One day in milliseconds; used for relative future/past showtimes in tests. */
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
 describe('TicketsService', () => {
   let service: TicketsService;
 
@@ -223,6 +226,81 @@ describe('TicketsService', () => {
       const result = await service.purchase(dto, 1);
 
       expect(result).toHaveLength(2);
+    });
+  });
+
+  describe('cancel', () => {
+    const futureShowtime = {
+      startTime: new Date(Date.now() + MILLISECONDS_PER_DAY)
+    };
+    const pastShowtime = {
+      startTime: new Date(Date.now() - MILLISECONDS_PER_DAY)
+    };
+
+    it('should cancel the ticket when the owner requests it', async () => {
+      const ownerTicket = {
+        ...mockTicket,
+        userId: mockRegularUser.id,
+        showtime: futureShowtime
+      };
+      mockTicketsRepository.findOne.mockResolvedValue(ownerTicket);
+      mockTicketsRepository.save.mockResolvedValue({
+        ...ownerTicket,
+        status: TicketStatus.CANCELLED
+      });
+
+      await service.cancel(1, mockRegularUser);
+
+      expect(mockTicketsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: TicketStatus.CANCELLED })
+      );
+    });
+
+    it('should cancel the ticket when an ADMIN requests it', async () => {
+      const ticketWithShowtime = { ...mockTicket, showtime: futureShowtime };
+      mockTicketsRepository.findOne.mockResolvedValue(ticketWithShowtime);
+      mockTicketsRepository.save.mockResolvedValue({
+        ...ticketWithShowtime,
+        status: TicketStatus.CANCELLED
+      });
+
+      await service.cancel(1, mockAdminUser);
+
+      expect(mockTicketsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ status: TicketStatus.CANCELLED })
+      );
+    });
+
+    it('should throw NotFoundException when ticket does not exist', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.cancel(99, mockRegularUser)).rejects.toThrow(
+        NotFoundException
+      );
+    });
+
+    it('should throw ForbiddenException when user is not the owner', async () => {
+      mockTicketsRepository.findOne.mockResolvedValue({
+        ...mockTicket,
+        showtime: futureShowtime
+      }); // userId: 1, mockRegularUser.id: 2
+
+      await expect(service.cancel(1, mockRegularUser)).rejects.toThrow(
+        ForbiddenException
+      );
+    });
+
+    it('should throw BadRequestException when showtime has already started', async () => {
+      const ownerTicket = {
+        ...mockTicket,
+        userId: mockRegularUser.id,
+        showtime: pastShowtime
+      };
+      mockTicketsRepository.findOne.mockResolvedValue(ownerTicket);
+
+      await expect(service.cancel(1, mockRegularUser)).rejects.toThrow(
+        BadRequestException
+      );
     });
   });
 });

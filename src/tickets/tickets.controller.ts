@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -57,5 +58,24 @@ export class TicketsController {
     @CurrentUser() currentUser: User
   ) {
     return this.ticketsService.findOne(id, currentUser);
+  }
+
+  @Delete(':id')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Cancel a ticket' })
+  @ApiResponse({ status: 204, description: 'Ticket cancelled successfully' })
+  @ApiResponse({ status: 400, description: 'Showtime has already started' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - ticket owner or ADMIN required'
+  })
+  @ApiResponse({ status: 404, description: 'Ticket not found' })
+  cancel(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.ticketsService.cancel(id, currentUser);
   }
 }

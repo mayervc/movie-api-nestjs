@@ -100,4 +100,28 @@ export class TicketsService {
 
     return this.ticketsRepository.save(tickets);
   }
+
+  async cancel(id: number, currentUser: User): Promise<void> {
+    const ticket = await this.ticketsRepository.findOne({
+      where: { id },
+      relations: ['showtime']
+    });
+    if (!ticket) {
+      throw new NotFoundException(`Ticket with ID ${id} not found`);
+    }
+    if (
+      ticket.userId !== currentUser.id &&
+      currentUser.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('You do not have access to this ticket');
+    }
+    if (ticket.showtime.startTime <= new Date()) {
+      throw new BadRequestException(
+        'Cannot cancel a ticket for a showtime that has already started'
+      );
+    }
+    ticket.status = TicketStatus.CANCELLED;
+    await this.ticketsRepository.save(ticket);
+    // TODO: Refund the user via Stripe — to be implemented in the Stripe story
+  }
 }
