@@ -44,6 +44,9 @@ const mockRoomsService = {
 const mockAdminUser = { id: 1, role: UserRole.ADMIN } as User;
 const mockRegularUser = { id: 2, role: UserRole.USER } as User;
 
+/** One day in milliseconds; used for relative future/past showtimes in tests. */
+const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
+
 describe('TicketsService', () => {
   let service: TicketsService;
 
@@ -227,8 +230,12 @@ describe('TicketsService', () => {
   });
 
   describe('cancel', () => {
-    const futureShowtime = { startTime: new Date(Date.now() + 86400000) };
-    const pastShowtime = { startTime: new Date(Date.now() - 86400000) };
+    const futureShowtime = {
+      startTime: new Date(Date.now() + MILLISECONDS_PER_DAY)
+    };
+    const pastShowtime = {
+      startTime: new Date(Date.now() - MILLISECONDS_PER_DAY)
+    };
 
     it('should cancel the ticket when the owner requests it', async () => {
       const ownerTicket = {
