@@ -76,6 +76,47 @@ export class StripeService {
   }
 
   /**
+   * Creates a Stripe Checkout session for a ticket purchase.
+   * Returns the session id and hosted checkout URL.
+   */
+  async createCheckoutSession(params: {
+    totalCents: number;
+    seatCount: number;
+    showtimeId: number;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<{ sessionId: string; url: string }> {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        'Stripe is not configured; cannot create checkout session'
+      );
+    }
+
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: 'usd',
+              unit_amount: Math.round(params.totalCents / params.seatCount),
+              product_data: { name: 'Movie ticket' }
+            },
+            quantity: params.seatCount
+          }
+        ],
+        metadata: { showtimeId: String(params.showtimeId) },
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl
+      });
+
+      return { sessionId: session.id, url: session.url as string };
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
+  /**
    * Issues a partial refund for one seat against a shared PaymentIntent (test and live modes).
    */
   async refundSingleSeat(params: {

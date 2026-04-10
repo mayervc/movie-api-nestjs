@@ -7,6 +7,7 @@ import typeormTestConfig from '../src/config/typeorm-test.config';
  */
 export const TRUNCATEABLE_TABLES = [
   'showtime_tickets',
+  'orders',
   'showtimes',
   'cast',
   'movies',
