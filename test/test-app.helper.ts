@@ -13,6 +13,7 @@ import { ActorsModule } from '../src/actors/actors.module';
 import { RoomsModule } from '../src/rooms/rooms.module';
 import { ShowtimesModule } from '../src/showtimes/showtimes.module';
 import { TicketsModule } from '../src/tickets/tickets.module';
+import { PaymentsModule } from '../src/payments/payments.module';
 import typeormTestConfig from '../src/config/typeorm-test.config';
 
 /**
@@ -68,7 +69,8 @@ export async function createTestApp(): Promise<INestApplication> {
       ActorsModule,
       RoomsModule,
       ShowtimesModule,
-      TicketsModule
+      TicketsModule,
+      PaymentsModule
     ],
     providers: [
       // Configurar los guards globales igual que en AppModule
