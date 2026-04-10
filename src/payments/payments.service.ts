@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException
@@ -6,8 +7,10 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
+import { StripeEvent } from './entities/stripe-event.entity';
 import { Showtime } from '../showtimes/entities/showtime.entity';
 import { StripeService, ticketPriceToCents } from '../stripe/stripe.service';
+import Stripe from 'stripe';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CheckoutSessionResponseDto } from './dto/checkout-session-response.dto';
 import { OrderStatus } from './enums/order-status.enum';
@@ -19,6 +22,8 @@ export class PaymentsService {
   constructor(
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
+    @InjectRepository(StripeEvent)
+    private readonly stripeEventsRepository: Repository<StripeEvent>,
     @InjectRepository(Showtime)
     private readonly showtimesRepository: Repository<Showtime>,
     private readonly stripeService: StripeService
@@ -61,6 +66,41 @@ export class PaymentsService {
     );
 
     return { sessionId, url, orderId: order.id };
+  }
+
+  async handleWebhook(rawBody: Buffer, signature: string): Promise<void> {
+    let event: Stripe.Event;
+    try {
+      event = this.stripeService.constructWebhookEvent(rawBody, signature);
+    } catch {
+      throw new BadRequestException('Invalid Stripe webhook signature');
+    }
+
+    const alreadyProcessed = await this.stripeEventsRepository.findOne({
+      where: { stripeEventId: event.id }
+    });
+    if (alreadyProcessed) {
+      return;
+    }
+
+    await this.stripeEventsRepository.save(
+      this.stripeEventsRepository.create({ stripeEventId: event.id })
+    );
+
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as Stripe.Checkout.Session;
+      const order = await this.ordersRepository.findOne({
+        where: { stripeSessionId: session.id }
+      });
+      if (order) {
+        order.status = OrderStatus.COMPLETED;
+        order.stripePaymentIntentId =
+          typeof session.payment_intent === 'string'
+            ? session.payment_intent
+            : null;
+        await this.ordersRepository.save(order);
+      }
+    }
   }
 
   async findBySessionId(sessionId: string, currentUser: User): Promise<Order> {
