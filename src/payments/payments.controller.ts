@@ -1,7 +1,16 @@
-import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Query
+} from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
+  ApiQuery,
   ApiResponse,
   ApiTags
 } from '@nestjs/swagger';
@@ -39,5 +48,23 @@ export class PaymentsController {
     @CurrentUser() currentUser: User
   ): Promise<CheckoutSessionResponseDto> {
     return this.paymentsService.createCheckoutSession(dto, currentUser);
+  }
+
+  @Get('order-by-session')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Get order by Stripe session ID' })
+  @ApiQuery({ name: 'sessionId', required: true, example: 'cs_test_abc123' })
+  @ApiResponse({ status: 200, description: 'Order found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden - order owner or ADMIN required'
+  })
+  @ApiResponse({ status: 404, description: 'Order not found' })
+  findBySessionId(
+    @Query('sessionId') sessionId: string,
+    @CurrentUser() currentUser: User
+  ) {
+    return this.paymentsService.findBySessionId(sessionId, currentUser);
   }
 }

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { Order } from './entities/order.entity';
 import { Showtime } from '../showtimes/entities/showtime.entity';
@@ -26,9 +26,25 @@ const mockUser: User = {
   role: UserRole.USER
 } as User;
 
+const mockAdminUser: User = {
+  id: 99,
+  email: 'admin@example.com',
+  role: UserRole.ADMIN
+} as User;
+
+const mockOrder = {
+  id: 1,
+  userId: mockUser.id,
+  stripeSessionId: STRIPE_SESSION_ID,
+  status: OrderStatus.PENDING,
+  totalCents: TOTAL_CENTS,
+  seatIds: [1]
+};
+
 const mockOrdersRepository = {
   create: jest.fn(),
-  save: jest.fn()
+  save: jest.fn(),
+  findOne: jest.fn()
 };
 
 const mockShowtimesRepository = {
@@ -133,6 +149,44 @@ describe('PaymentsService', () => {
       await expect(
         service.createCheckoutSession(dto, mockUser)
       ).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findBySessionId', () => {
+    it('should return the order when the owner requests it', async () => {
+      mockOrdersRepository.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findBySessionId(STRIPE_SESSION_ID, mockUser);
+
+      expect(result).toEqual(mockOrder);
+    });
+
+    it('should return the order when ADMIN requests it', async () => {
+      mockOrdersRepository.findOne.mockResolvedValue(mockOrder);
+
+      const result = await service.findBySessionId(
+        STRIPE_SESSION_ID,
+        mockAdminUser
+      );
+
+      expect(result).toEqual(mockOrder);
+    });
+
+    it('should throw NotFoundException when order does not exist', async () => {
+      mockOrdersRepository.findOne.mockResolvedValue(null);
+
+      await expect(
+        service.findBySessionId('cs_nonexistent', mockUser)
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ForbiddenException when user is not the owner', async () => {
+      mockOrdersRepository.findOne.mockResolvedValue(mockOrder);
+      const otherUser = { ...mockUser, id: 999 } as User;
+
+      await expect(
+        service.findBySessionId(STRIPE_SESSION_ID, otherUser)
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 });
