@@ -13,6 +13,7 @@ import { ActorsModule } from './actors/actors.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ShowtimesModule } from './showtimes/showtimes.module';
 import { TicketsModule } from './tickets/tickets.module';
+import { PaymentsModule } from './payments/payments.module';
 
 @Module({
   imports: [
@@ -42,7 +43,8 @@ import { TicketsModule } from './tickets/tickets.module';
     ActorsModule,
     RoomsModule,
     ShowtimesModule,
-    TicketsModule
+    TicketsModule,
+    PaymentsModule
   ],
   providers: [
     {
