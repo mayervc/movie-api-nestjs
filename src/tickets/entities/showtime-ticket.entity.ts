@@ -46,6 +46,14 @@ export class ShowtimeTicket {
   })
   status: TicketStatus;
 
+  @Column({
+    name: 'stripe_payment_intent_id',
+    type: 'varchar',
+    length: 255,
+    nullable: true
+  })
+  stripePaymentIntentId: string | null;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
