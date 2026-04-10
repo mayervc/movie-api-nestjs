@@ -10,7 +10,9 @@ import { Cinema } from '../src/cinemas/entities/cinema.entity';
 import { RoomBlock } from '../src/rooms/entities/room-block.entity';
 import { User } from '../src/users/entities/user.entity';
 import { OrderStatus } from '../src/payments/enums/order-status.enum';
+import { StripeEvent } from '../src/payments/entities/stripe-event.entity';
 import { StripeService } from '../src/stripe/stripe.service';
+import Stripe from 'stripe';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
 import { createAdminAndUser } from './test-auth.helper';
@@ -311,5 +313,175 @@ describe('GET /payments/order-by-session', () => {
       .get('/payments/order-by-session?sessionId=cs_nonexistent')
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(404);
+  });
+});
+
+const STRIPE_EVENT_ID = 'evt_test_mock_123';
+const STRIPE_PAYMENT_INTENT_ID = 'pi_test_mock_456';
+
+describe('POST /payments/webhook', () => {
+  let app: INestApplication;
+  let orderRepository: Repository<Order>;
+  let stripeEventRepository: Repository<StripeEvent>;
+  let showtimeRepository: Repository<Showtime>;
+  let movieRepository: Repository<Movie>;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let cinemaRepository: Repository<Cinema>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    orderRepository = testModule.get<Repository<Order>>(
+      getRepositoryToken(Order)
+    );
+    stripeEventRepository = testModule.get<Repository<StripeEvent>>(
+      getRepositoryToken(StripeEvent)
+    );
+    showtimeRepository = testModule.get<Repository<Showtime>>(
+      getRepositoryToken(Showtime)
+    );
+    movieRepository = testModule.get<Repository<Movie>>(
+      getRepositoryToken(Movie)
+    );
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = orderRepository.manager.connection;
+
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest
+      .spyOn(stripeService, 'constructWebhookEvent')
+      .mockImplementation(() => {
+        return {
+          id: STRIPE_EVENT_ID,
+          type: 'checkout.session.completed',
+          data: {
+            object: {
+              id: STRIPE_SESSION_ID,
+              payment_intent: STRIPE_PAYMENT_INTENT_ID
+            }
+          }
+        } as unknown as Stripe.Event;
+      });
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'orders',
+      'stripe_events',
+      'showtimes',
+      'rooms',
+      'cinemas',
+      'movies',
+      'users'
+    ]);
+  });
+
+  async function createPendingOrder(userId: number) {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const movie = await movieRepository.save({
+      title: 'Test Movie',
+      synopsis: 'Test synopsis',
+      genres: ['ACTION'],
+      releaseDate: new Date('2026-01-01'),
+      duration: 120,
+      rating: 8.0,
+      language: 'EN',
+      posterUrl: null,
+      trailerUrl: null
+    });
+    const room = await roomRepository.save({
+      name: 'Sala 1',
+      rowsBlocks: 1,
+      columnsBlocks: 1,
+      details: null,
+      cinemaId: cinema.id
+    });
+    await roomBlockRepository.save({
+      rowSeats: 1,
+      columnsSeats: 1,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    const showtime = await showtimeRepository.save({
+      movieId: movie.id,
+      roomId: room.id,
+      startTime: new Date('2027-04-01T20:00:00Z'),
+      ticketPrice: 9.99
+    });
+    return orderRepository.save({
+      userId,
+      showtimeId: showtime.id,
+      stripeSessionId: STRIPE_SESSION_ID,
+      stripePaymentIntentId: null,
+      status: OrderStatus.PENDING,
+      totalCents: 999,
+      seatIds: [1]
+    });
+  }
+
+  it('should return 200 and update order to completed', async () => {
+    const auth = await createAdminAndUser(userRepository, app);
+    const order = await createPendingOrder(auth.regularUser.id);
+
+    await request(app.getHttpServer())
+      .post('/payments/webhook')
+      .set('stripe-signature', 'mock-sig')
+      .send({})
+      .expect(200);
+
+    const updated = await orderRepository.findOne({ where: { id: order.id } });
+    expect(updated?.status).toBe(OrderStatus.COMPLETED);
+    expect(updated?.stripePaymentIntentId).toBe(STRIPE_PAYMENT_INTENT_ID);
+
+    const event = await stripeEventRepository.findOne({
+      where: { stripeEventId: STRIPE_EVENT_ID }
+    });
+    expect(event).toBeDefined();
+  });
+
+  it('should return 200 and be idempotent on duplicate event', async () => {
+    const auth = await createAdminAndUser(userRepository, app);
+    await createPendingOrder(auth.regularUser.id);
+
+    await stripeEventRepository.save(
+      stripeEventRepository.create({ stripeEventId: STRIPE_EVENT_ID })
+    );
+
+    await request(app.getHttpServer())
+      .post('/payments/webhook')
+      .set('stripe-signature', 'mock-sig')
+      .send({})
+      .expect(200);
+
+    const events = await stripeEventRepository.find({
+      where: { stripeEventId: STRIPE_EVENT_ID }
+    });
+    expect(events).toHaveLength(1);
+  });
+
+  it('should return 400 when signature verification fails', async () => {
+    const testModule = getTestModule();
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest
+      .spyOn(stripeService, 'constructWebhookEvent')
+      .mockImplementationOnce(() => {
+        throw new Error('Invalid signature');
+      });
+
+    await request(app.getHttpServer())
+      .post('/payments/webhook')
+      .set('stripe-signature', 'bad-sig')
+      .send({})
+      .expect(400);
   });
 });

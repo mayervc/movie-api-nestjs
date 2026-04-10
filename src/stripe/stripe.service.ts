@@ -143,6 +143,35 @@ export class StripeService {
     }
   }
 
+  /**
+   * Verifies the Stripe webhook signature and constructs the event object.
+   * Throws BadRequestException if the signature is invalid.
+   */
+  constructWebhookEvent(rawBody: Buffer, signature: string): Stripe.Event {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        'Stripe is not configured; cannot process webhook'
+      );
+    }
+    const webhookSecret = this.configService.get<string>(
+      'STRIPE_WEBHOOK_SECRET'
+    );
+    if (!webhookSecret) {
+      throw new BadRequestException(
+        'STRIPE_WEBHOOK_SECRET is not set; cannot verify webhook signature'
+      );
+    }
+    try {
+      return this.stripe.webhooks.constructEvent(
+        rawBody,
+        signature,
+        webhookSecret
+      );
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
   private rethrowStripeError(error: unknown): never {
     if (error instanceof BadRequestException) {
       throw error;

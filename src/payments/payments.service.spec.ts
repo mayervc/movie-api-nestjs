@@ -1,10 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { ForbiddenException, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  NotFoundException
+} from '@nestjs/common';
 import { PaymentsService } from './payments.service';
 import { Order } from './entities/order.entity';
+import { StripeEvent } from './entities/stripe-event.entity';
 import { Showtime } from '../showtimes/entities/showtime.entity';
 import { StripeService } from '../stripe/stripe.service';
+import Stripe from 'stripe';
 import { OrderStatus } from './enums/order-status.enum';
 import { User } from '../users/entities/user.entity';
 import { UserRole } from '../users/enums/user-role.enum';
@@ -51,8 +57,15 @@ const mockShowtimesRepository = {
   findOne: jest.fn()
 };
 
+const mockStripeEventsRepository = {
+  findOne: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn()
+};
+
 const mockStripeService = {
-  createCheckoutSession: jest.fn()
+  createCheckoutSession: jest.fn(),
+  constructWebhookEvent: jest.fn()
 };
 
 describe('PaymentsService', () => {
@@ -67,6 +80,10 @@ describe('PaymentsService', () => {
         {
           provide: getRepositoryToken(Order),
           useValue: mockOrdersRepository
+        },
+        {
+          provide: getRepositoryToken(StripeEvent),
+          useValue: mockStripeEventsRepository
         },
         {
           provide: getRepositoryToken(Showtime),
@@ -187,6 +204,83 @@ describe('PaymentsService', () => {
       await expect(
         service.findBySessionId(STRIPE_SESSION_ID, otherUser)
       ).rejects.toThrow(ForbiddenException);
+    });
+  });
+
+  describe('handleWebhook', () => {
+    const RAW_BODY = Buffer.from('{}');
+    const SIGNATURE = 'stripe-sig-test';
+    const EVENT_ID = 'evt_test_123';
+
+    function makeEvent(
+      type: string,
+      sessionData: Partial<Stripe.Checkout.Session> = {}
+    ): Stripe.Event {
+      return {
+        id: EVENT_ID,
+        type,
+        data: { object: { id: STRIPE_SESSION_ID, ...sessionData } }
+      } as unknown as Stripe.Event;
+    }
+
+    it('should update order to completed on checkout.session.completed', async () => {
+      const event = makeEvent('checkout.session.completed', {
+        payment_intent: 'pi_test_123'
+      });
+      mockStripeService.constructWebhookEvent.mockReturnValue(event);
+      mockStripeEventsRepository.findOne.mockResolvedValue(null);
+      mockStripeEventsRepository.create.mockReturnValue({
+        stripeEventId: EVENT_ID
+      });
+      mockStripeEventsRepository.save.mockResolvedValue({});
+      mockOrdersRepository.findOne.mockResolvedValue({ ...mockOrder });
+      mockOrdersRepository.save.mockResolvedValue({});
+
+      await service.handleWebhook(RAW_BODY, SIGNATURE);
+
+      expect(mockOrdersRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: OrderStatus.COMPLETED,
+          stripePaymentIntentId: 'pi_test_123'
+        })
+      );
+    });
+
+    it('should be idempotent — skip already processed events', async () => {
+      const event = makeEvent('checkout.session.completed');
+      mockStripeService.constructWebhookEvent.mockReturnValue(event);
+      mockStripeEventsRepository.findOne.mockResolvedValue({
+        stripeEventId: EVENT_ID
+      });
+
+      await service.handleWebhook(RAW_BODY, SIGNATURE);
+
+      expect(mockOrdersRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should ignore unhandled event types without throwing', async () => {
+      const event = makeEvent('customer.subscription.created');
+      mockStripeService.constructWebhookEvent.mockReturnValue(event);
+      mockStripeEventsRepository.findOne.mockResolvedValue(null);
+      mockStripeEventsRepository.create.mockReturnValue({
+        stripeEventId: EVENT_ID
+      });
+      mockStripeEventsRepository.save.mockResolvedValue({});
+
+      await expect(
+        service.handleWebhook(RAW_BODY, SIGNATURE)
+      ).resolves.toBeUndefined();
+      expect(mockOrdersRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException when signature is invalid', async () => {
+      mockStripeService.constructWebhookEvent.mockImplementation(() => {
+        throw new BadRequestException('Invalid signature');
+      });
+
+      await expect(service.handleWebhook(RAW_BODY, 'bad-sig')).rejects.toThrow(
+        BadRequestException
+      );
     });
   });
 });
