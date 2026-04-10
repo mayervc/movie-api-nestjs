@@ -9,6 +9,8 @@ import { RoomBlock } from '../rooms/entities/room-block.entity';
 import { RoomSeat } from '../rooms/entities/room-seat.entity';
 import { Showtime } from '../showtimes/entities/showtime.entity';
 import { ShowtimeTicket } from '../tickets/entities/showtime-ticket.entity';
+import { Order } from '../payments/entities/order.entity';
+import { StripeEvent } from '../payments/entities/stripe-event.entity';
 
 /**
  * Array centralizado de todas las entidades de TypeORM
@@ -26,5 +28,7 @@ export const entities = [
   RoomBlock,
   RoomSeat,
   Showtime,
-  ShowtimeTicket
+  ShowtimeTicket,
+  Order,
+  StripeEvent
 ];
