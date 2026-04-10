@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Order } from './entities/order.entity';
@@ -8,6 +12,7 @@ import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CheckoutSessionResponseDto } from './dto/checkout-session-response.dto';
 import { OrderStatus } from './enums/order-status.enum';
 import { User } from '../users/entities/user.entity';
+import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class PaymentsService {
@@ -56,5 +61,23 @@ export class PaymentsService {
     );
 
     return { sessionId, url, orderId: order.id };
+  }
+
+  async findBySessionId(sessionId: string, currentUser: User): Promise<Order> {
+    const order = await this.ordersRepository.findOne({
+      where: { stripeSessionId: sessionId }
+    });
+    if (!order) {
+      throw new NotFoundException(
+        `Order with session ID ${sessionId} not found`
+      );
+    }
+    if (
+      order.userId !== currentUser.id &&
+      currentUser.role !== UserRole.ADMIN
+    ) {
+      throw new ForbiddenException('You do not have access to this order');
+    }
+    return order;
   }
 }

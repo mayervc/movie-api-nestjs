@@ -168,3 +168,148 @@ describe('POST /payments/create-checkout-session', () => {
       .expect(404);
   });
 });
+
+describe('GET /payments/order-by-session', () => {
+  let app: INestApplication;
+  let orderRepository: Repository<Order>;
+  let showtimeRepository: Repository<Showtime>;
+  let movieRepository: Repository<Movie>;
+  let roomRepository: Repository<Room>;
+  let roomBlockRepository: Repository<RoomBlock>;
+  let cinemaRepository: Repository<Cinema>;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let adminToken: string;
+  let userToken: string;
+  let adminUser: User;
+  let regularUser: User;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    orderRepository = testModule.get<Repository<Order>>(
+      getRepositoryToken(Order)
+    );
+    showtimeRepository = testModule.get<Repository<Showtime>>(
+      getRepositoryToken(Showtime)
+    );
+    movieRepository = testModule.get<Repository<Movie>>(
+      getRepositoryToken(Movie)
+    );
+    roomRepository = testModule.get<Repository<Room>>(getRepositoryToken(Room));
+    roomBlockRepository = testModule.get<Repository<RoomBlock>>(
+      getRepositoryToken(RoomBlock)
+    );
+    cinemaRepository = testModule.get<Repository<Cinema>>(
+      getRepositoryToken(Cinema)
+    );
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = orderRepository.manager.connection;
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, [
+      'orders',
+      'showtimes',
+      'rooms',
+      'cinemas',
+      'movies',
+      'users'
+    ]);
+    const auth = await createAdminAndUser(userRepository, app);
+    adminToken = auth.adminToken;
+    userToken = auth.userToken;
+    adminUser = auth.adminUser;
+    regularUser = auth.regularUser;
+  });
+
+  async function createOrderForUser(userId: number) {
+    const cinema = await cinemaRepository.save({ name: 'Test Cinema' });
+    const movie = await movieRepository.save({
+      title: 'Test Movie',
+      synopsis: 'Test synopsis',
+      genres: ['ACTION'],
+      releaseDate: new Date('2026-01-01'),
+      duration: 120,
+      rating: 8.0,
+      language: 'EN',
+      posterUrl: null,
+      trailerUrl: null
+    });
+    const room = await roomRepository.save({
+      name: 'Sala 1',
+      rowsBlocks: 1,
+      columnsBlocks: 1,
+      details: null,
+      cinemaId: cinema.id
+    });
+    await roomBlockRepository.save({
+      rowSeats: 1,
+      columnsSeats: 1,
+      blockRow: 1,
+      blockColumn: 1,
+      roomId: room.id
+    });
+    const showtime = await showtimeRepository.save({
+      movieId: movie.id,
+      roomId: room.id,
+      startTime: new Date('2027-04-01T20:00:00Z'),
+      ticketPrice: 9.99
+    });
+    return orderRepository.save({
+      userId,
+      showtimeId: showtime.id,
+      stripeSessionId: STRIPE_SESSION_ID,
+      stripePaymentIntentId: null,
+      status: OrderStatus.PENDING,
+      totalCents: 999,
+      seatIds: [1]
+    });
+  }
+
+  it('should return 200 with order when owner requests it', async () => {
+    await createOrderForUser(regularUser.id);
+
+    const res = await request(app.getHttpServer())
+      .get(`/payments/order-by-session?sessionId=${STRIPE_SESSION_ID}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(res.body.stripeSessionId).toBe(STRIPE_SESSION_ID);
+    expect(res.body.userId).toBe(regularUser.id);
+    expect(res.body.status).toBe(OrderStatus.PENDING);
+  });
+
+  it('should return 200 when ADMIN requests any order', async () => {
+    await createOrderForUser(regularUser.id);
+
+    const res = await request(app.getHttpServer())
+      .get(`/payments/order-by-session?sessionId=${STRIPE_SESSION_ID}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+
+    expect(res.body.stripeSessionId).toBe(STRIPE_SESSION_ID);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer())
+      .get(`/payments/order-by-session?sessionId=${STRIPE_SESSION_ID}`)
+      .expect(401);
+  });
+
+  it('should return 403 when user is not the owner', async () => {
+    await createOrderForUser(adminUser.id);
+
+    await request(app.getHttpServer())
+      .get(`/payments/order-by-session?sessionId=${STRIPE_SESSION_ID}`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(403);
+  });
+
+  it('should return 404 when order does not exist', async () => {
+    await request(app.getHttpServer())
+      .get('/payments/order-by-session?sessionId=cs_nonexistent')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(404);
+  });
+});
