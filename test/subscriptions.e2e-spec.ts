@@ -135,12 +135,10 @@ describe('GET /subscriptions', () => {
       plan_name: expect.any(String),
       total_amount: expect.any(Number)
     });
-    expect(response.body.pagination).toMatchObject({
-      page: 1,
-      limit: 20,
-      total: 2,
-      totalPages: 1
-    });
+    expect(response.body.total).toBe(2);
+    expect(response.body.page).toBe(1);
+    expect(response.body.limit).toBe(20);
+    expect(response.body.totalPages).toBe(1);
   });
 
   it('should return 200 with empty list when no subscriptions exist', async () => {
@@ -150,7 +148,7 @@ describe('GET /subscriptions', () => {
       .expect(200);
 
     expect(response.body.purchases).toHaveLength(0);
-    expect(response.body.pagination.total).toBe(0);
+    expect(response.body.total).toBe(0);
   });
 
   it('should respect page and limit query params', async () => {
@@ -169,12 +167,10 @@ describe('GET /subscriptions', () => {
       .expect(200);
 
     expect(response.body.purchases).toHaveLength(1);
-    expect(response.body.pagination).toMatchObject({
-      page: 1,
-      limit: 1,
-      total: 2,
-      totalPages: 2
-    });
+    expect(response.body.total).toBe(2);
+    expect(response.body.page).toBe(1);
+    expect(response.body.limit).toBe(1);
+    expect(response.body.totalPages).toBe(2);
   });
 
   it('should return 401 when not authenticated', async () => {

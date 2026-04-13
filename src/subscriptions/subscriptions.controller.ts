@@ -15,7 +15,6 @@ import {
   ApiTags
 } from '@nestjs/swagger';
 import { SubscriptionsService } from './subscriptions.service';
-import { SubscriptionPurchasesService } from './subscription-purchases.service';
 import { SubscriptionResponseDto } from './dto/subscription-response.dto';
 import { SubscriptionPurchaseResponseDto } from './dto/subscription-purchase-response.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -24,10 +23,7 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('subscriptions')
 @Controller('subscriptions')
 export class SubscriptionsController {
-  constructor(
-    private readonly subscriptionsService: SubscriptionsService,
-    private readonly subscriptionPurchasesService: SubscriptionPurchasesService
-  ) {}
+  constructor(private readonly subscriptionsService: SubscriptionsService) {}
 
   @Get('my-subscription')
   @HttpCode(HttpStatus.OK)
@@ -66,7 +62,7 @@ export class SubscriptionsController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number
   ): Promise<SubscriptionPurchaseResponseDto> {
-    return this.subscriptionPurchasesService.getSubscriptionHistory(
+    return this.subscriptionsService.getSubscriptionHistory(
       currentUser.id,
       page,
       limit

@@ -17,7 +17,13 @@ export class SubscriptionPurchaseItemDto {
   created_at: Date;
 }
 
-export class SubscriptionPurchasePaginationDto {
+export class SubscriptionPurchaseResponseDto {
+  @ApiProperty({ type: [SubscriptionPurchaseItemDto] })
+  purchases: SubscriptionPurchaseItemDto[];
+
+  @ApiProperty()
+  total: number;
+
   @ApiProperty()
   page: number;
 
@@ -25,16 +31,5 @@ export class SubscriptionPurchasePaginationDto {
   limit: number;
 
   @ApiProperty()
-  total: number;
-
-  @ApiProperty()
   totalPages: number;
-}
-
-export class SubscriptionPurchaseResponseDto {
-  @ApiProperty({ type: [SubscriptionPurchaseItemDto] })
-  purchases: SubscriptionPurchaseItemDto[];
-
-  @ApiProperty({ type: SubscriptionPurchasePaginationDto })
-  pagination: SubscriptionPurchasePaginationDto;
 }
