@@ -2,11 +2,16 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
-  Query
+  Query,
+  RawBodyRequest,
+  Req
 } from '@nestjs/common';
+import { Request } from 'express';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -18,11 +23,14 @@ import { PaymentsService } from './payments.service';
 import { CreateCheckoutSessionDto } from './dto/create-checkout-session.dto';
 import { CheckoutSessionResponseDto } from './dto/checkout-session-response.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { Public } from '../auth/decorators/public.decorator';
 import { User } from '../users/entities/user.entity';
 
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post('create-checkout-session')
@@ -66,5 +74,27 @@ export class PaymentsController {
     @CurrentUser() currentUser: User
   ) {
     return this.paymentsService.findBySessionId(sessionId, currentUser);
+  }
+
+  @Post('webhook')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      'Handle Stripe webhook events (public, raw body, signature verified)'
+  })
+  @ApiResponse({ status: 200, description: 'Event processed' })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid signature or missing webhook secret'
+  })
+  handleWebhook(
+    @Req() req: RawBodyRequest<Request>,
+    @Headers('stripe-signature') signature: string
+  ) {
+    this.logger.log(
+      `Stripe webhook for payments received, payload: ${req.rawBody?.toString()}`
+    );
+    return this.paymentsService.handleWebhook(req.rawBody, signature);
   }
 }
