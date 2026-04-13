@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
   Query,
   RawBodyRequest,
@@ -28,6 +29,8 @@ import { User } from '../users/entities/user.entity';
 @ApiTags('payments')
 @Controller('payments')
 export class PaymentsController {
+  private readonly logger = new Logger(PaymentsController.name);
+
   constructor(private readonly paymentsService: PaymentsService) {}
 
   @Post('create-checkout-session')
@@ -89,6 +92,9 @@ export class PaymentsController {
     @Req() req: RawBodyRequest<Request>,
     @Headers('stripe-signature') signature: string
   ) {
+    this.logger.log(
+      `Stripe webhook for payments received, payload: ${req.rawBody?.toString()}`
+    );
     return this.paymentsService.handleWebhook(req.rawBody, signature);
   }
 }

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -19,6 +20,8 @@ import { UserRole } from '../users/enums/user-role.enum';
 
 @Injectable()
 export class PaymentsService {
+  private readonly logger = new Logger(PaymentsService.name);
+
   constructor(
     @InjectRepository(Order)
     private readonly ordersRepository: Repository<Order>,
@@ -75,6 +78,7 @@ export class PaymentsService {
     } catch {
       throw new BadRequestException('Invalid Stripe webhook signature');
     }
+    this.logger.log(`Stripe event object: ${JSON.stringify(event)}`);
 
     const alreadyProcessed = await this.stripeEventsRepository.findOne({
       where: { stripeEventId: event.id }
