@@ -14,6 +14,7 @@ import { RoomsModule } from './rooms/rooms.module';
 import { ShowtimesModule } from './showtimes/showtimes.module';
 import { TicketsModule } from './tickets/tickets.module';
 import { PaymentsModule } from './payments/payments.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
   imports: [
@@ -44,7 +45,8 @@ import { PaymentsModule } from './payments/payments.module';
     RoomsModule,
     ShowtimesModule,
     TicketsModule,
-    PaymentsModule
+    PaymentsModule,
+    SubscriptionsModule
   ],
   providers: [
     {

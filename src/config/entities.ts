@@ -11,6 +11,7 @@ import { Showtime } from '../showtimes/entities/showtime.entity';
 import { ShowtimeTicket } from '../tickets/entities/showtime-ticket.entity';
 import { Order } from '../payments/entities/order.entity';
 import { StripeEvent } from '../payments/entities/stripe-event.entity';
+import { Subscription } from '../subscriptions/entities/subscription.entity';
 
 /**
  * Array centralizado de todas las entidades de TypeORM
@@ -30,5 +31,6 @@ export const entities = [
   Showtime,
   ShowtimeTicket,
   Order,
-  StripeEvent
+  StripeEvent,
+  Subscription
 ];
