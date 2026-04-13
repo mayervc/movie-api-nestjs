@@ -9,6 +9,7 @@ export const TRUNCATEABLE_TABLES = [
   'showtime_tickets',
   'orders',
   'stripe_events',
+  'subscriptions',
   'showtimes',
   'cast',
   'movies',
