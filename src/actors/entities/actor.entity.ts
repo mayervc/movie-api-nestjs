@@ -40,9 +40,6 @@ export class Actor {
   @Column({ name: 'profile_image', nullable: true })
   profileImage: string;
 
-  @Column({ nullable: true })
-  character: string;
-
   @Column({ name: 'tmdb_id', unique: true, nullable: true })
   tmdbId: number;
 
