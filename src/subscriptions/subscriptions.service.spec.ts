@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { Subscription } from './entities/subscription.entity';
 import { SubscriptionPlan } from './enums/subscription-plan.enum';
@@ -55,7 +55,8 @@ const mockConfigService = {
 const mockStripeService = {
   createSubscriptionCheckoutSession: jest.fn(),
   retrieveCheckoutSession: jest.fn(),
-  retrieveSubscription: jest.fn()
+  retrieveSubscription: jest.fn(),
+  cancelSubscriptionAtPeriodEnd: jest.fn()
 };
 
 const mockCompletedSession = {
@@ -237,6 +238,38 @@ describe('SubscriptionsService', () => {
       await expect(service.verify(dto, USER_ID)).rejects.toThrow(
         BadRequestException
       );
+    });
+  });
+
+  describe('cancel', () => {
+    it('should set cancelAtPeriodEnd to true and save when active subscription exists', async () => {
+      const activeSubscription = {
+        ...mockBasicSubscription,
+        stripeSubscriptionId: STRIPE_SUBSCRIPTION_ID,
+        cancelAtPeriodEnd: false
+      } as Subscription;
+      mockSubscriptionsRepository.findOne.mockResolvedValue(activeSubscription);
+      mockStripeService.cancelSubscriptionAtPeriodEnd.mockResolvedValue(
+        undefined
+      );
+      const saved = { ...activeSubscription, cancelAtPeriodEnd: true };
+      mockSubscriptionsRepository.save.mockResolvedValue(saved);
+
+      const result = await service.cancel(USER_ID);
+
+      expect(
+        mockStripeService.cancelSubscriptionAtPeriodEnd
+      ).toHaveBeenCalledWith(STRIPE_SUBSCRIPTION_ID);
+      expect(mockSubscriptionsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ cancelAtPeriodEnd: true })
+      );
+      expect(result.cancelAtPeriodEnd).toBe(true);
+    });
+
+    it('should throw 404 when no active subscription exists', async () => {
+      mockSubscriptionsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.cancel(USER_ID)).rejects.toThrow(NotFoundException);
     });
   });
 

@@ -74,6 +74,23 @@ export class SubscriptionsController {
     return this.subscriptionsService.verify(dto, currentUser.id);
   }
 
+  @Post('cancel')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Cancel the authenticated user subscription at period end'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription scheduled for cancellation at period end',
+    type: SubscriptionResponseDto
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 404, description: 'No active subscription found' })
+  cancel(@CurrentUser() currentUser: User): Promise<Subscription> {
+    return this.subscriptionsService.cancel(currentUser.id);
+  }
+
   @Get('my-subscription')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()
