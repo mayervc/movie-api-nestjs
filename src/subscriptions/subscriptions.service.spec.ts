@@ -7,6 +7,7 @@ import { Subscription } from './entities/subscription.entity';
 import { SubscriptionPlan } from './enums/subscription-plan.enum';
 import { StripeService } from '../stripe/stripe.service';
 import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
+import { VerifySubscriptionDto } from './dto/verify-subscription.dto';
 
 const USER_ID = 1;
 const OTHER_USER_ID = 2;
@@ -15,6 +16,10 @@ const PREMIUM_AMOUNT = 14.99;
 const STRIPE_SESSION_ID = 'cs_test_abc123';
 const STRIPE_SESSION_URL = 'https://checkout.stripe.com/pay/cs_test_abc123';
 const STRIPE_PRICE_BASIC = 'price_basic_test';
+const STRIPE_SUBSCRIPTION_ID = 'sub_test_abc123';
+const STRIPE_CUSTOMER_ID = 'cus_test_abc123';
+const PERIOD_START_UNIX = 1746057600; // 2026-05-01
+const PERIOD_END_UNIX = 1748736000; // 2026-06-01
 
 const mockBasicSubscription = {
   id: 1,
@@ -38,7 +43,9 @@ const mockPremiumSubscription = {
 
 const mockSubscriptionsRepository = {
   findOne: jest.fn(),
-  findAndCount: jest.fn()
+  findAndCount: jest.fn(),
+  create: jest.fn(),
+  save: jest.fn()
 };
 
 const mockConfigService = {
@@ -46,7 +53,28 @@ const mockConfigService = {
 };
 
 const mockStripeService = {
-  createSubscriptionCheckoutSession: jest.fn()
+  createSubscriptionCheckoutSession: jest.fn(),
+  retrieveCheckoutSession: jest.fn(),
+  retrieveSubscription: jest.fn()
+};
+
+const mockCompletedSession = {
+  id: STRIPE_SESSION_ID,
+  status: 'complete',
+  payment_status: 'paid',
+  subscription: STRIPE_SUBSCRIPTION_ID,
+  customer: STRIPE_CUSTOMER_ID
+};
+
+const mockStripeSubscription = {
+  id: STRIPE_SUBSCRIPTION_ID,
+  status: 'active',
+  current_period_start: PERIOD_START_UNIX,
+  current_period_end: PERIOD_END_UNIX,
+  cancel_at_period_end: false,
+  items: {
+    data: [{ price: { id: STRIPE_PRICE_BASIC } }]
+  }
 };
 
 describe('SubscriptionsService', () => {
@@ -126,6 +154,87 @@ describe('SubscriptionsService', () => {
       mockConfigService.get.mockReturnValue(undefined);
 
       await expect(service.createCheckout(dto)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+  });
+
+  describe('verify', () => {
+    const dto: VerifySubscriptionDto = { sessionId: STRIPE_SESSION_ID };
+
+    it('should create and return a new subscription when session is completed', async () => {
+      mockStripeService.retrieveCheckoutSession.mockResolvedValue(
+        mockCompletedSession
+      );
+      mockStripeService.retrieveSubscription.mockResolvedValue(
+        mockStripeSubscription
+      );
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'STRIPE_PRICE_BASIC') return STRIPE_PRICE_BASIC;
+        return undefined;
+      });
+      mockSubscriptionsRepository.findOne.mockResolvedValue(null);
+      const newSubscription = { userId: USER_ID } as Subscription;
+      mockSubscriptionsRepository.create.mockReturnValue(newSubscription);
+      mockSubscriptionsRepository.save.mockResolvedValue({
+        ...newSubscription,
+        id: 1,
+        plan: SubscriptionPlan.BASIC,
+        status: 'active'
+      });
+
+      const result = await service.verify(dto, USER_ID);
+
+      expect(result.plan).toBe(SubscriptionPlan.BASIC);
+      expect(result.status).toBe('active');
+      expect(mockSubscriptionsRepository.save).toHaveBeenCalled();
+    });
+
+    it('should update existing subscription when already exists', async () => {
+      mockStripeService.retrieveCheckoutSession.mockResolvedValue(
+        mockCompletedSession
+      );
+      mockStripeService.retrieveSubscription.mockResolvedValue(
+        mockStripeSubscription
+      );
+      mockConfigService.get.mockImplementation((key: string) => {
+        if (key === 'STRIPE_PRICE_BASIC') return STRIPE_PRICE_BASIC;
+        return undefined;
+      });
+      mockSubscriptionsRepository.findOne.mockResolvedValue(
+        mockBasicSubscription
+      );
+      mockSubscriptionsRepository.save.mockResolvedValue(mockBasicSubscription);
+
+      const result = await service.verify(dto, USER_ID);
+
+      expect(result).toEqual(mockBasicSubscription);
+      expect(mockSubscriptionsRepository.create).not.toHaveBeenCalled();
+    });
+
+    it('should throw 400 when session is not completed', async () => {
+      mockStripeService.retrieveCheckoutSession.mockResolvedValue({
+        ...mockCompletedSession,
+        status: 'open',
+        payment_status: 'unpaid'
+      });
+
+      await expect(service.verify(dto, USER_ID)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+
+    it('should throw 400 when price ID is unrecognized', async () => {
+      mockStripeService.retrieveCheckoutSession.mockResolvedValue(
+        mockCompletedSession
+      );
+      mockStripeService.retrieveSubscription.mockResolvedValue({
+        ...mockStripeSubscription,
+        items: { data: [{ price: { id: 'price_unknown' } }] }
+      });
+      mockConfigService.get.mockReturnValue(undefined);
+
+      await expect(service.verify(dto, USER_ID)).rejects.toThrow(
         BadRequestException
       );
     });

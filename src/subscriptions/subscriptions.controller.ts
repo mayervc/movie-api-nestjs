@@ -21,8 +21,10 @@ import { SubscriptionResponseDto } from './dto/subscription-response.dto';
 import { SubscriptionPurchaseResponseDto } from './dto/subscription-purchase-response.dto';
 import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
 import { SubscriptionCheckoutResponseDto } from './dto/subscription-checkout-response.dto';
+import { VerifySubscriptionDto } from './dto/verify-subscription.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { Subscription } from './entities/subscription.entity';
 
 @ApiTags('subscriptions')
 @Controller('subscriptions')
@@ -50,6 +52,26 @@ export class SubscriptionsController {
     @Body() dto: CreateSubscriptionCheckoutDto
   ): Promise<SubscriptionCheckoutResponseDto> {
     return this.subscriptionsService.createCheckout(dto);
+  }
+
+  @Post('verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Verify a completed Stripe checkout session and sync subscription'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription created or updated',
+    type: SubscriptionResponseDto
+  })
+  @ApiResponse({ status: 400, description: 'Session not completed or invalid' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  verify(
+    @Body() dto: VerifySubscriptionDto,
+    @CurrentUser() currentUser: User
+  ): Promise<Subscription> {
+    return this.subscriptionsService.verify(dto, currentUser.id);
   }
 
   @Get('my-subscription')

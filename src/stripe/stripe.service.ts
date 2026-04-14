@@ -146,6 +146,38 @@ export class StripeService {
   }
 
   /**
+   * Retrieves a Stripe Checkout session by ID.
+   */
+  async retrieveCheckoutSession(
+    sessionId: string
+  ): Promise<Stripe.Checkout.Session> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    try {
+      return await this.stripe.checkout.sessions.retrieve(sessionId);
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
+  /**
+   * Retrieves a Stripe Subscription by ID.
+   */
+  async retrieveSubscription(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    try {
+      return await this.stripe.subscriptions.retrieve(subscriptionId);
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
+  /**
    * Issues a partial refund for one seat against a shared PaymentIntent (test and live modes).
    */
   async refundSingleSeat(params: {
