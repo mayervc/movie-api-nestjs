@@ -260,6 +260,84 @@ describe('POST /subscriptions/create-checkout', () => {
   });
 });
 
+describe('POST /subscriptions/reactivate', () => {
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let subscriptionRepository: Repository<Subscription>;
+  let dataSource: DataSource;
+  let userToken: string;
+  let regularUser: User;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    subscriptionRepository = testModule.get<Repository<Subscription>>(
+      getRepositoryToken(Subscription)
+    );
+    dataSource = userRepository.manager.connection;
+
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest
+      .spyOn(stripeService, 'reactivateSubscription')
+      .mockResolvedValue({} as any);
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, ['subscriptions', 'users']);
+    ({ regularUser, userToken } = await createAdminAndUser(
+      userRepository,
+      app
+    ));
+  });
+
+  it('should return 200 with cancelAtPeriodEnd=false when subscription was pending cancellation', async () => {
+    await subscriptionRepository.save(
+      subscriptionRepository.create(
+        buildSubscription(regularUser.id, SubscriptionPlan.BASIC, {
+          cancelAtPeriodEnd: true
+        })
+      )
+    );
+
+    const response = await request(app.getHttpServer())
+      .post('/subscriptions/reactivate')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(response.body.userId).toBe(regularUser.id);
+    expect(response.body.cancelAtPeriodEnd).toBe(false);
+  });
+
+  it('should return 400 when no subscription pending cancellation exists', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/reactivate')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(400);
+  });
+
+  it('should return 400 when subscription exists but is not pending cancellation', async () => {
+    await subscriptionRepository.save(
+      subscriptionRepository.create(
+        buildSubscription(regularUser.id, SubscriptionPlan.BASIC, {
+          cancelAtPeriodEnd: false
+        })
+      )
+    );
+
+    await request(app.getHttpServer())
+      .post('/subscriptions/reactivate')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(400);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/reactivate')
+      .expect(401);
+  });
+});
+
 describe('POST /subscriptions/cancel', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;

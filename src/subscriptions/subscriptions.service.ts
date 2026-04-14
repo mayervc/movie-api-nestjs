@@ -147,6 +147,26 @@ export class SubscriptionsService {
     return this.subscriptionsRepository.save(subscription);
   }
 
+  async reactivate(userId: number): Promise<Subscription> {
+    const subscription = await this.subscriptionsRepository.findOne({
+      where: { userId, status: 'active', cancelAtPeriodEnd: true },
+      order: { createdAt: 'DESC' }
+    });
+
+    if (!subscription) {
+      throw new BadRequestException(
+        'No subscription pending cancellation found for this user'
+      );
+    }
+
+    await this.stripeService.reactivateSubscription(
+      subscription.stripeSubscriptionId
+    );
+
+    subscription.cancelAtPeriodEnd = false;
+    return this.subscriptionsRepository.save(subscription);
+  }
+
   async cancel(userId: number): Promise<Subscription> {
     const subscription = await this.subscriptionsRepository.findOne({
       where: { userId, status: 'active' },
