@@ -117,6 +117,35 @@ export class StripeService {
   }
 
   /**
+   * Creates a Stripe Checkout session for a subscription plan.
+   * Requires a Stripe Price ID (from env) for the chosen plan.
+   */
+  async createSubscriptionCheckoutSession(params: {
+    priceId: string;
+    successUrl: string;
+    cancelUrl: string;
+  }): Promise<{ sessionId: string; url: string }> {
+    if (!this.stripe) {
+      throw new BadRequestException(
+        'Stripe is not configured; cannot create subscription checkout session'
+      );
+    }
+
+    try {
+      const session = await this.stripe.checkout.sessions.create({
+        mode: 'subscription',
+        line_items: [{ price: params.priceId, quantity: 1 }],
+        success_url: params.successUrl,
+        cancel_url: params.cancelUrl
+      });
+
+      return { sessionId: session.id, url: session.url as string };
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
+  /**
    * Issues a partial refund for one seat against a shared PaymentIntent (test and live modes).
    */
   async refundSingleSeat(params: {

@@ -1,10 +1,12 @@
 import {
+  Body,
   Controller,
   DefaultValuePipe,
   Get,
   HttpCode,
   HttpStatus,
   ParseIntPipe,
+  Post,
   Query
 } from '@nestjs/common';
 import {
@@ -17,6 +19,8 @@ import {
 import { SubscriptionsService } from './subscriptions.service';
 import { SubscriptionResponseDto } from './dto/subscription-response.dto';
 import { SubscriptionPurchaseResponseDto } from './dto/subscription-purchase-response.dto';
+import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
+import { SubscriptionCheckoutResponseDto } from './dto/subscription-checkout-response.dto';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 
@@ -24,6 +28,29 @@ import { User } from '../users/entities/user.entity';
 @Controller('subscriptions')
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
+
+  @Post('create-checkout')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Create a Stripe Checkout session for a subscription plan'
+  })
+  @ApiResponse({
+    status: 201,
+    description:
+      'Checkout session created — redirect the user to the returned URL',
+    type: SubscriptionCheckoutResponseDto
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Stripe not configured or price ID missing'
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  createCheckout(
+    @Body() dto: CreateSubscriptionCheckoutDto
+  ): Promise<SubscriptionCheckoutResponseDto> {
+    return this.subscriptionsService.createCheckout(dto);
+  }
 
   @Get('my-subscription')
   @HttpCode(HttpStatus.OK)

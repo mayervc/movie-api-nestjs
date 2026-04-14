@@ -1,14 +1,20 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
+import { BadRequestException } from '@nestjs/common';
 import { SubscriptionsService } from './subscriptions.service';
 import { Subscription } from './entities/subscription.entity';
 import { SubscriptionPlan } from './enums/subscription-plan.enum';
+import { StripeService } from '../stripe/stripe.service';
+import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
 
 const USER_ID = 1;
 const OTHER_USER_ID = 2;
 const BASIC_AMOUNT = 9.99;
 const PREMIUM_AMOUNT = 14.99;
+const STRIPE_SESSION_ID = 'cs_test_abc123';
+const STRIPE_SESSION_URL = 'https://checkout.stripe.com/pay/cs_test_abc123';
+const STRIPE_PRICE_BASIC = 'price_basic_test';
 
 const mockBasicSubscription = {
   id: 1,
@@ -36,7 +42,11 @@ const mockSubscriptionsRepository = {
 };
 
 const mockConfigService = {
-  get: jest.fn((_key: string, defaultValue: number) => defaultValue)
+  get: jest.fn()
+};
+
+const mockStripeService = {
+  createSubscriptionCheckoutSession: jest.fn()
 };
 
 describe('SubscriptionsService', () => {
@@ -50,10 +60,8 @@ describe('SubscriptionsService', () => {
           provide: getRepositoryToken(Subscription),
           useValue: mockSubscriptionsRepository
         },
-        {
-          provide: ConfigService,
-          useValue: mockConfigService
-        }
+        { provide: ConfigService, useValue: mockConfigService },
+        { provide: StripeService, useValue: mockStripeService }
       ]
     }).compile();
 
@@ -85,12 +93,53 @@ describe('SubscriptionsService', () => {
     });
   });
 
+  describe('createCheckout', () => {
+    const dto: CreateSubscriptionCheckoutDto = {
+      plan: SubscriptionPlan.BASIC,
+      successUrl: 'https://app.com/success',
+      cancelUrl: 'https://app.com/cancel'
+    };
+
+    it('should return sessionId and url on success', async () => {
+      mockConfigService.get.mockReturnValue(STRIPE_PRICE_BASIC);
+      mockStripeService.createSubscriptionCheckoutSession.mockResolvedValue({
+        sessionId: STRIPE_SESSION_ID,
+        url: STRIPE_SESSION_URL
+      });
+
+      const result = await service.createCheckout(dto);
+
+      expect(result).toEqual({
+        sessionId: STRIPE_SESSION_ID,
+        url: STRIPE_SESSION_URL
+      });
+      expect(
+        mockStripeService.createSubscriptionCheckoutSession
+      ).toHaveBeenCalledWith({
+        priceId: STRIPE_PRICE_BASIC,
+        successUrl: dto.successUrl,
+        cancelUrl: dto.cancelUrl
+      });
+    });
+
+    it('should throw 400 when Stripe price ID is not configured', async () => {
+      mockConfigService.get.mockReturnValue(undefined);
+
+      await expect(service.createCheckout(dto)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+  });
+
   describe('getSubscriptionHistory', () => {
     it('should return paginated purchases with correct flat shape', async () => {
       mockSubscriptionsRepository.findAndCount.mockResolvedValue([
         [mockPremiumSubscription, mockBasicSubscription],
         2
       ]);
+      mockConfigService.get.mockImplementation(
+        (_key: string, defaultValue: number) => defaultValue
+      );
 
       const result = await service.getSubscriptionHistory(USER_ID, 1, 20);
 
@@ -115,6 +164,9 @@ describe('SubscriptionsService', () => {
 
     it('should return empty purchases list when user has no subscriptions', async () => {
       mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockConfigService.get.mockImplementation(
+        (_key: string, defaultValue: number) => defaultValue
+      );
 
       const result = await service.getSubscriptionHistory(USER_ID, 1, 20);
 
@@ -125,6 +177,9 @@ describe('SubscriptionsService', () => {
 
     it('should clamp limit to MAX_LIMIT (50) when exceeded', async () => {
       mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockConfigService.get.mockImplementation(
+        (_key: string, defaultValue: number) => defaultValue
+      );
 
       const result = await service.getSubscriptionHistory(USER_ID, 1, 100);
 
@@ -136,6 +191,9 @@ describe('SubscriptionsService', () => {
 
     it('should calculate correct offset for page 2', async () => {
       mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+      mockConfigService.get.mockImplementation(
+        (_key: string, defaultValue: number) => defaultValue
+      );
 
       await service.getSubscriptionHistory(USER_ID, 2, 20);
 

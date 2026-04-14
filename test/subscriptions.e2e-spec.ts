@@ -5,9 +5,13 @@ import { DataSource, Repository } from 'typeorm';
 import { User } from '../src/users/entities/user.entity';
 import { Subscription } from '../src/subscriptions/entities/subscription.entity';
 import { SubscriptionPlan } from '../src/subscriptions/enums/subscription-plan.enum';
+import { StripeService } from '../src/stripe/stripe.service';
 import { createTestApp, getTestModule } from './test-app.helper';
 import { truncateTables } from './test-db.helper';
 import { createAdminAndUser } from './test-auth.helper';
+
+const STRIPE_SESSION_ID = 'cs_test_mock_sub_session';
+const STRIPE_SESSION_URL = 'https://checkout.stripe.com/pay/cs_test_mock_sub';
 
 const buildSubscription = (
   userId: number,
@@ -175,5 +179,78 @@ describe('GET /subscriptions', () => {
 
   it('should return 401 when not authenticated', async () => {
     await request(app.getHttpServer()).get('/subscriptions').expect(401);
+  });
+});
+
+describe('POST /subscriptions/create-checkout', () => {
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let dataSource: DataSource;
+  let userToken: string;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    dataSource = userRepository.manager.connection;
+
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest
+      .spyOn(stripeService, 'createSubscriptionCheckoutSession')
+      .mockResolvedValue({
+        sessionId: STRIPE_SESSION_ID,
+        url: STRIPE_SESSION_URL
+      });
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, ['subscriptions', 'users']);
+    ({ userToken } = await createAdminAndUser(userRepository, app));
+  });
+
+  it('should return 201 with sessionId and url on success', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/subscriptions/create-checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        plan: SubscriptionPlan.BASIC,
+        successUrl: 'https://app.com/success',
+        cancelUrl: 'https://app.com/cancel'
+      })
+      .expect(201);
+
+    expect(response.body.sessionId).toBe(STRIPE_SESSION_ID);
+    expect(response.body.url).toBe(STRIPE_SESSION_URL);
+  });
+
+  it('should return 400 when plan is invalid', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/create-checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({
+        plan: 'invalid_plan',
+        successUrl: 'https://app.com/success',
+        cancelUrl: 'https://app.com/cancel'
+      })
+      .expect(400);
+  });
+
+  it('should return 400 when required fields are missing', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/create-checkout')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({})
+      .expect(400);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/create-checkout')
+      .send({
+        plan: SubscriptionPlan.BASIC,
+        successUrl: 'https://app.com/success',
+        cancelUrl: 'https://app.com/cancel'
+      })
+      .expect(401);
   });
 });
