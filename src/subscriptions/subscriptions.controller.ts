@@ -74,6 +74,26 @@ export class SubscriptionsController {
     return this.subscriptionsService.verify(dto, currentUser.id);
   }
 
+  @Post('reactivate')
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Reactivate a subscription that was scheduled for cancellation'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription reactivated — cancellation undone',
+    type: SubscriptionResponseDto
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'No subscription pending cancellation found'
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  reactivate(@CurrentUser() currentUser: User): Promise<Subscription> {
+    return this.subscriptionsService.reactivate(currentUser.id);
+  }
+
   @Post('cancel')
   @HttpCode(HttpStatus.OK)
   @ApiBearerAuth()

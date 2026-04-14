@@ -56,7 +56,8 @@ const mockStripeService = {
   createSubscriptionCheckoutSession: jest.fn(),
   retrieveCheckoutSession: jest.fn(),
   retrieveSubscription: jest.fn(),
-  cancelSubscriptionAtPeriodEnd: jest.fn()
+  cancelSubscriptionAtPeriodEnd: jest.fn(),
+  reactivateSubscription: jest.fn()
 };
 
 const mockCompletedSession = {
@@ -236,6 +237,40 @@ describe('SubscriptionsService', () => {
       mockConfigService.get.mockReturnValue(undefined);
 
       await expect(service.verify(dto, USER_ID)).rejects.toThrow(
+        BadRequestException
+      );
+    });
+  });
+
+  describe('reactivate', () => {
+    it('should set cancelAtPeriodEnd to false and save when subscription is pending cancellation', async () => {
+      const pendingCancelSubscription = {
+        ...mockBasicSubscription,
+        stripeSubscriptionId: STRIPE_SUBSCRIPTION_ID,
+        cancelAtPeriodEnd: true
+      } as Subscription;
+      mockSubscriptionsRepository.findOne.mockResolvedValue(
+        pendingCancelSubscription
+      );
+      mockStripeService.reactivateSubscription.mockResolvedValue(undefined);
+      const saved = { ...pendingCancelSubscription, cancelAtPeriodEnd: false };
+      mockSubscriptionsRepository.save.mockResolvedValue(saved);
+
+      const result = await service.reactivate(USER_ID);
+
+      expect(mockStripeService.reactivateSubscription).toHaveBeenCalledWith(
+        STRIPE_SUBSCRIPTION_ID
+      );
+      expect(mockSubscriptionsRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ cancelAtPeriodEnd: false })
+      );
+      expect(result.cancelAtPeriodEnd).toBe(false);
+    });
+
+    it('should throw 400 when no subscription pending cancellation exists', async () => {
+      mockSubscriptionsRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.reactivate(USER_ID)).rejects.toThrow(
         BadRequestException
       );
     });

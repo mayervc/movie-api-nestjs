@@ -196,6 +196,24 @@ export class StripeService {
   }
 
   /**
+   * Reactivates a Stripe subscription that was previously set to cancel at period end.
+   */
+  async reactivateSubscription(
+    subscriptionId: string
+  ): Promise<Stripe.Subscription> {
+    if (!this.stripe) {
+      throw new BadRequestException('Stripe is not configured');
+    }
+    try {
+      return await this.stripe.subscriptions.update(subscriptionId, {
+        cancel_at_period_end: false
+      });
+    } catch (error: unknown) {
+      this.rethrowStripeError(error);
+    }
+  }
+
+  /**
    * Issues a partial refund for one seat against a shared PaymentIntent (test and live modes).
    */
   async refundSingleSeat(params: {
