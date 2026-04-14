@@ -1,28 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
 import { SubscriptionsService } from './subscriptions.service';
 import { Subscription } from './entities/subscription.entity';
 import { SubscriptionPlan } from './enums/subscription-plan.enum';
 
 const USER_ID = 1;
 const OTHER_USER_ID = 2;
+const BASIC_AMOUNT = 9.99;
+const PREMIUM_AMOUNT = 14.99;
 
-const mockSubscription: Partial<Subscription> = {
+const mockBasicSubscription = {
   id: 1,
   userId: USER_ID,
-  stripeSubscriptionId: 'sub_test_abc123',
-  stripeCustomerId: 'cus_test_abc123',
   plan: SubscriptionPlan.BASIC,
   status: 'active',
   cancelAtPeriodEnd: false,
   discountPercent: 10,
   freeTicketsPerMonth: 2,
   freeTicketsRemaining: 2,
-  freeTicketsUsed: 0
-};
+  freeTicketsUsed: 0,
+  createdAt: new Date('2026-01-01T00:00:00.000Z')
+} as Subscription;
+
+const mockPremiumSubscription = {
+  id: 2,
+  userId: USER_ID,
+  plan: SubscriptionPlan.PREMIUM,
+  createdAt: new Date('2026-02-01T00:00:00.000Z')
+} as Subscription;
 
 const mockSubscriptionsRepository = {
-  findOne: jest.fn()
+  findOne: jest.fn(),
+  findAndCount: jest.fn()
+};
+
+const mockConfigService = {
+  get: jest.fn((_key: string, defaultValue: number) => defaultValue)
 };
 
 describe('SubscriptionsService', () => {
@@ -35,6 +49,10 @@ describe('SubscriptionsService', () => {
         {
           provide: getRepositoryToken(Subscription),
           useValue: mockSubscriptionsRepository
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService
         }
       ]
     }).compile();
@@ -45,11 +63,13 @@ describe('SubscriptionsService', () => {
 
   describe('getMySubscription', () => {
     it('should return the subscription when one exists for the user', async () => {
-      mockSubscriptionsRepository.findOne.mockResolvedValue(mockSubscription);
+      mockSubscriptionsRepository.findOne.mockResolvedValue(
+        mockBasicSubscription
+      );
 
       const result = await service.getMySubscription(USER_ID);
 
-      expect(result).toEqual(mockSubscription);
+      expect(result).toEqual(mockBasicSubscription);
       expect(mockSubscriptionsRepository.findOne).toHaveBeenCalledWith({
         where: { userId: USER_ID },
         order: { createdAt: 'DESC' }
@@ -62,10 +82,66 @@ describe('SubscriptionsService', () => {
       const result = await service.getMySubscription(OTHER_USER_ID);
 
       expect(result).toBeNull();
-      expect(mockSubscriptionsRepository.findOne).toHaveBeenCalledWith({
-        where: { userId: OTHER_USER_ID },
-        order: { createdAt: 'DESC' }
+    });
+  });
+
+  describe('getSubscriptionHistory', () => {
+    it('should return paginated purchases with correct flat shape', async () => {
+      mockSubscriptionsRepository.findAndCount.mockResolvedValue([
+        [mockPremiumSubscription, mockBasicSubscription],
+        2
+      ]);
+
+      const result = await service.getSubscriptionHistory(USER_ID, 1, 20);
+
+      expect(result.purchases).toHaveLength(2);
+      expect(result.purchases[0]).toMatchObject({
+        id: mockPremiumSubscription.id,
+        plan_slug: SubscriptionPlan.PREMIUM,
+        plan_name: 'Premium',
+        total_amount: PREMIUM_AMOUNT
       });
+      expect(result.purchases[1]).toMatchObject({
+        id: mockBasicSubscription.id,
+        plan_slug: SubscriptionPlan.BASIC,
+        plan_name: 'Básico',
+        total_amount: BASIC_AMOUNT
+      });
+      expect(result.total).toBe(2);
+      expect(result.page).toBe(1);
+      expect(result.limit).toBe(20);
+      expect(result.totalPages).toBe(1);
+    });
+
+    it('should return empty purchases list when user has no subscriptions', async () => {
+      mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      const result = await service.getSubscriptionHistory(USER_ID, 1, 20);
+
+      expect(result.purchases).toHaveLength(0);
+      expect(result.total).toBe(0);
+      expect(result.totalPages).toBe(0);
+    });
+
+    it('should clamp limit to MAX_LIMIT (50) when exceeded', async () => {
+      mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      const result = await service.getSubscriptionHistory(USER_ID, 1, 100);
+
+      expect(result.limit).toBe(50);
+      expect(mockSubscriptionsRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ take: 50 })
+      );
+    });
+
+    it('should calculate correct offset for page 2', async () => {
+      mockSubscriptionsRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.getSubscriptionHistory(USER_ID, 2, 20);
+
+      expect(mockSubscriptionsRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 20, take: 20 })
+      );
     });
   });
 });
