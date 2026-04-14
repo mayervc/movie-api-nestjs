@@ -85,14 +85,8 @@ export class SubscriptionsService {
       );
     }
 
-    const stripeSubscriptionId =
-      typeof session.subscription === 'string'
-        ? session.subscription
-        : session.subscription?.id;
-    const stripeCustomerId =
-      typeof session.customer === 'string'
-        ? session.customer
-        : (session.customer as { id?: string })?.id;
+    const stripeSubscriptionId = session.subscription as string | null;
+    const stripeCustomerId = session.customer as string | null;
 
     if (!stripeSubscriptionId) {
       throw new BadRequestException(
