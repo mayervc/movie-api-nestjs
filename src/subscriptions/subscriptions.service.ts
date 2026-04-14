@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -140,6 +144,24 @@ export class SubscriptionsService {
     subscription.discountPercent = discountPercent;
     subscription.freeTicketsPerMonth = freeTicketsPerMonth;
 
+    return this.subscriptionsRepository.save(subscription);
+  }
+
+  async cancel(userId: number): Promise<Subscription> {
+    const subscription = await this.subscriptionsRepository.findOne({
+      where: { userId, status: 'active' },
+      order: { createdAt: 'DESC' }
+    });
+
+    if (!subscription) {
+      throw new NotFoundException('No active subscription found for this user');
+    }
+
+    await this.stripeService.cancelSubscriptionAtPeriodEnd(
+      subscription.stripeSubscriptionId
+    );
+
+    subscription.cancelAtPeriodEnd = true;
     return this.subscriptionsRepository.save(subscription);
   }
 

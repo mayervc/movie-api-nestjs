@@ -260,6 +260,69 @@ describe('POST /subscriptions/create-checkout', () => {
   });
 });
 
+describe('POST /subscriptions/cancel', () => {
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let subscriptionRepository: Repository<Subscription>;
+  let dataSource: DataSource;
+  let userToken: string;
+  let regularUser: User;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    subscriptionRepository = testModule.get<Repository<Subscription>>(
+      getRepositoryToken(Subscription)
+    );
+    dataSource = userRepository.manager.connection;
+
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest
+      .spyOn(stripeService, 'cancelSubscriptionAtPeriodEnd')
+      .mockResolvedValue({} as any);
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, ['subscriptions', 'users']);
+    ({ regularUser, userToken } = await createAdminAndUser(
+      userRepository,
+      app
+    ));
+  });
+
+  it('should return 200 with cancelAtPeriodEnd=true when active subscription exists', async () => {
+    await subscriptionRepository.save(
+      subscriptionRepository.create(
+        buildSubscription(regularUser.id, SubscriptionPlan.BASIC, {
+          cancelAtPeriodEnd: false
+        })
+      )
+    );
+
+    const response = await request(app.getHttpServer())
+      .post('/subscriptions/cancel')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(200);
+
+    expect(response.body.userId).toBe(regularUser.id);
+    expect(response.body.cancelAtPeriodEnd).toBe(true);
+  });
+
+  it('should return 404 when no active subscription exists', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/cancel')
+      .set('Authorization', `Bearer ${userToken}`)
+      .expect(404);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/cancel')
+      .expect(401);
+  });
+});
+
 describe('POST /subscriptions/verify', () => {
   let app: INestApplication;
   let userRepository: Repository<User>;
