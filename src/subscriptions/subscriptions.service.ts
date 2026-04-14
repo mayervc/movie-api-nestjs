@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
@@ -8,6 +8,9 @@ import {
   SubscriptionPurchaseItemDto,
   SubscriptionPurchaseResponseDto
 } from './dto/subscription-purchase-response.dto';
+import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
+import { SubscriptionCheckoutResponseDto } from './dto/subscription-checkout-response.dto';
+import { StripeService } from '../stripe/stripe.service';
 
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
@@ -18,12 +21,18 @@ const PLAN_NAMES: Record<SubscriptionPlan, string> = {
   [SubscriptionPlan.PREMIUM]: 'Premium'
 };
 
+const STRIPE_PRICE_IDS: Record<SubscriptionPlan, string> = {
+  [SubscriptionPlan.BASIC]: 'STRIPE_PRICE_BASIC',
+  [SubscriptionPlan.PREMIUM]: 'STRIPE_PRICE_PREMIUM'
+};
+
 @Injectable()
 export class SubscriptionsService {
   constructor(
     @InjectRepository(Subscription)
     private readonly subscriptionsRepository: Repository<Subscription>,
-    private readonly configService: ConfigService
+    private readonly configService: ConfigService,
+    private readonly stripeService: StripeService
   ) {}
 
   async getMySubscription(userId: number): Promise<Subscription | null> {
@@ -31,6 +40,26 @@ export class SubscriptionsService {
       where: { userId },
       order: { createdAt: 'DESC' }
     });
+  }
+
+  async createCheckout(
+    dto: CreateSubscriptionCheckoutDto
+  ): Promise<SubscriptionCheckoutResponseDto> {
+    const priceId = this.configService.get<string>(STRIPE_PRICE_IDS[dto.plan]);
+    if (!priceId) {
+      throw new BadRequestException(
+        `Stripe price ID for plan "${dto.plan}" is not configured`
+      );
+    }
+
+    const { sessionId, url } =
+      await this.stripeService.createSubscriptionCheckoutSession({
+        priceId,
+        successUrl: dto.successUrl,
+        cancelUrl: dto.cancelUrl
+      });
+
+    return { sessionId, url };
   }
 
   async getSubscriptionHistory(
