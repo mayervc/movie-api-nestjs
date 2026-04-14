@@ -12,6 +12,11 @@ import { createAdminAndUser } from './test-auth.helper';
 
 const STRIPE_SESSION_ID = 'cs_test_mock_sub_session';
 const STRIPE_SESSION_URL = 'https://checkout.stripe.com/pay/cs_test_mock_sub';
+const STRIPE_SUBSCRIPTION_ID = 'sub_test_mock_abc123';
+const STRIPE_CUSTOMER_ID = 'cus_test_mock_abc123';
+const STRIPE_PRICE_BASIC = 'price_basic_test';
+const PERIOD_START_UNIX = 1746057600;
+const PERIOD_END_UNIX = 1748736000;
 
 const buildSubscription = (
   userId: number,
@@ -251,6 +256,92 @@ describe('POST /subscriptions/create-checkout', () => {
         successUrl: 'https://app.com/success',
         cancelUrl: 'https://app.com/cancel'
       })
+      .expect(401);
+  });
+});
+
+describe('POST /subscriptions/verify', () => {
+  let app: INestApplication;
+  let userRepository: Repository<User>;
+  let subscriptionRepository: Repository<Subscription>;
+  let dataSource: DataSource;
+  let userToken: string;
+  let regularUser: User;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const testModule = getTestModule();
+    userRepository = testModule.get<Repository<User>>(getRepositoryToken(User));
+    subscriptionRepository = testModule.get<Repository<Subscription>>(
+      getRepositoryToken(Subscription)
+    );
+    dataSource = userRepository.manager.connection;
+
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest.spyOn(stripeService, 'retrieveCheckoutSession').mockResolvedValue({
+      id: STRIPE_SESSION_ID,
+      status: 'complete',
+      payment_status: 'paid',
+      subscription: STRIPE_SUBSCRIPTION_ID,
+      customer: STRIPE_CUSTOMER_ID
+    } as any);
+    jest.spyOn(stripeService, 'retrieveSubscription').mockResolvedValue({
+      id: STRIPE_SUBSCRIPTION_ID,
+      status: 'active',
+      current_period_start: PERIOD_START_UNIX,
+      current_period_end: PERIOD_END_UNIX,
+      cancel_at_period_end: false,
+      items: { data: [{ price: { id: STRIPE_PRICE_BASIC } }] }
+    } as any);
+  });
+
+  beforeEach(async () => {
+    await truncateTables(dataSource, ['subscriptions', 'users']);
+    ({ regularUser, userToken } = await createAdminAndUser(
+      userRepository,
+      app
+    ));
+  });
+
+  it('should return 200 and create subscription record on completed session', async () => {
+    const response = await request(app.getHttpServer())
+      .post('/subscriptions/verify')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ sessionId: STRIPE_SESSION_ID })
+      .expect(200);
+
+    expect(response.body.userId).toBe(regularUser.id);
+    expect(response.body.plan).toBe(SubscriptionPlan.BASIC);
+    expect(response.body.status).toBe('active');
+    expect(response.body.stripeSubscriptionId).toBe(STRIPE_SUBSCRIPTION_ID);
+    expect(response.body.stripeCustomerId).toBe(STRIPE_CUSTOMER_ID);
+
+    const saved = await subscriptionRepository.findOne({
+      where: { stripeSubscriptionId: STRIPE_SUBSCRIPTION_ID }
+    });
+    expect(saved).not.toBeNull();
+  });
+
+  it('should return 400 when session is not completed', async () => {
+    const testModule = getTestModule();
+    const stripeService = testModule.get<StripeService>(StripeService);
+    jest.spyOn(stripeService, 'retrieveCheckoutSession').mockResolvedValueOnce({
+      id: STRIPE_SESSION_ID,
+      status: 'open',
+      payment_status: 'unpaid'
+    } as any);
+
+    await request(app.getHttpServer())
+      .post('/subscriptions/verify')
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ sessionId: STRIPE_SESSION_ID })
+      .expect(400);
+  });
+
+  it('should return 401 when not authenticated', async () => {
+    await request(app.getHttpServer())
+      .post('/subscriptions/verify')
+      .send({ sessionId: STRIPE_SESSION_ID })
       .expect(401);
   });
 });

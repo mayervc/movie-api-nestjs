@@ -10,6 +10,7 @@ import {
 } from './dto/subscription-purchase-response.dto';
 import { CreateSubscriptionCheckoutDto } from './dto/create-subscription-checkout.dto';
 import { SubscriptionCheckoutResponseDto } from './dto/subscription-checkout-response.dto';
+import { VerifySubscriptionDto } from './dto/verify-subscription.dto';
 import { StripeService } from '../stripe/stripe.service';
 
 const DEFAULT_PAGE = 1;
@@ -24,6 +25,14 @@ const PLAN_NAMES: Record<SubscriptionPlan, string> = {
 const STRIPE_PRICE_IDS: Record<SubscriptionPlan, string> = {
   [SubscriptionPlan.BASIC]: 'STRIPE_PRICE_BASIC',
   [SubscriptionPlan.PREMIUM]: 'STRIPE_PRICE_PREMIUM'
+};
+
+const PLAN_CONFIG: Record<
+  SubscriptionPlan,
+  { freeTicketsPerMonth: number; discountPercent: number }
+> = {
+  [SubscriptionPlan.BASIC]: { freeTicketsPerMonth: 2, discountPercent: 10 },
+  [SubscriptionPlan.PREMIUM]: { freeTicketsPerMonth: 4, discountPercent: 20 }
 };
 
 @Injectable()
@@ -60,6 +69,78 @@ export class SubscriptionsService {
       });
 
     return { sessionId, url };
+  }
+
+  async verify(
+    dto: VerifySubscriptionDto,
+    userId: number
+  ): Promise<Subscription> {
+    const session = await this.stripeService.retrieveCheckoutSession(
+      dto.sessionId
+    );
+
+    if (session.status !== 'complete' || session.payment_status !== 'paid') {
+      throw new BadRequestException(
+        'Subscription checkout session is not completed'
+      );
+    }
+
+    const stripeSubscriptionId = session.subscription as string | null;
+    const stripeCustomerId = session.customer as string | null;
+
+    if (!stripeSubscriptionId) {
+      throw new BadRequestException(
+        'No subscription found in checkout session'
+      );
+    }
+
+    const stripeSub =
+      await this.stripeService.retrieveSubscription(stripeSubscriptionId);
+
+    const priceId = stripeSub.items.data[0]?.price?.id;
+    const basicPriceId = this.configService.get<string>('STRIPE_PRICE_BASIC');
+    const premiumPriceId = this.configService.get<string>(
+      'STRIPE_PRICE_PREMIUM'
+    );
+
+    let plan: SubscriptionPlan;
+    if (priceId === basicPriceId) {
+      plan = SubscriptionPlan.BASIC;
+    } else if (priceId === premiumPriceId) {
+      plan = SubscriptionPlan.PREMIUM;
+    } else {
+      throw new BadRequestException(`Unrecognized Stripe price ID: ${priceId}`);
+    }
+
+    const { freeTicketsPerMonth, discountPercent } = PLAN_CONFIG[plan];
+
+    let subscription = await this.subscriptionsRepository.findOne({
+      where: { stripeSubscriptionId }
+    });
+
+    if (!subscription) {
+      subscription = this.subscriptionsRepository.create({
+        userId,
+        freeTicketsRemaining: freeTicketsPerMonth,
+        freeTicketsUsed: 0
+      });
+    }
+
+    subscription.stripeSubscriptionId = stripeSubscriptionId;
+    subscription.stripeCustomerId = stripeCustomerId ?? null;
+    subscription.plan = plan;
+    subscription.status = stripeSub.status;
+    subscription.currentPeriodStart = new Date(
+      stripeSub.current_period_start * 1000
+    );
+    subscription.currentPeriodEnd = new Date(
+      stripeSub.current_period_end * 1000
+    );
+    subscription.cancelAtPeriodEnd = stripeSub.cancel_at_period_end;
+    subscription.discountPercent = discountPercent;
+    subscription.freeTicketsPerMonth = freeTicketsPerMonth;
+
+    return this.subscriptionsRepository.save(subscription);
   }
 
   async getSubscriptionHistory(
